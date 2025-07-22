@@ -53,15 +53,15 @@ function MainNav() {
     <SidebarMenu>
       {filteredNavItems.map((item) => (
         <SidebarMenuItem key={item.href}>
-            <Link href={item.href}>
-                <SidebarMenuButton
-                isActive={pathname === item.href}
-                tooltip={item.label}
-                >
-                <item.icon />
-                <span>{item.label}</span>
-                </SidebarMenuButton>
-            </Link>
+          <Link href={item.href} passHref>
+            <SidebarMenuButton
+              isActive={pathname === item.href}
+              tooltip={item.label}
+            >
+              <item.icon />
+              <span>{item.label}</span>
+            </SidebarMenuButton>
+          </Link>
         </SidebarMenuItem>
       ))}
     </SidebarMenu>
@@ -112,6 +112,28 @@ function UserMenu() {
   );
 }
 
+function AppFooter() {
+    return (
+        <footer className="mt-auto border-t bg-background px-6 py-4">
+            <div className="text-center text-sm text-muted-foreground">
+                <p>
+                    Desenvolvido com ❤️ por{' '}
+                    <a
+                        href="https://github.com/joabjhones"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-primary underline-offset-4 hover:underline"
+                    >
+                        Joab Jhones
+                    </a>
+                    .
+                </p>
+                <p>Uma solução inteligente para gestão de chamados de TI.</p>
+            </div>
+        </footer>
+    );
+}
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const pathname = usePathname();
@@ -121,7 +143,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   if(loading) {
     return (
         <div className="flex min-h-screen items-center justify-center bg-background">
-            {/* Pode adicionar um spinner aqui */}
             <p>Carregando...</p>
         </div>
     )
@@ -148,8 +169,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <UserMenu />
           </SidebarFooter>
         </Sidebar>
-        <SidebarInset className="bg-background">
-            {children}
+        <SidebarInset className="flex flex-col bg-background">
+            <div className="flex-grow">{children}</div>
+            <AppFooter />
         </SidebarInset>
       </div>
     </SidebarProvider>
