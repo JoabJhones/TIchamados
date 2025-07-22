@@ -117,9 +117,9 @@ function AppFooter() {
         <footer className="border-t bg-background px-6 py-4">
             <div className="text-center text-sm text-muted-foreground">
                 <p>
-                    Desenvolvido com ❤️ por{' '}
+                    Desenvolvido por{' '}
                     <a
-                        href="https://github.com/joabjhones"
+                        href="https://t.me/JoabJhones"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-semibold text-primary underline-offset-4 hover:underline"
