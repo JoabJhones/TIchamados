@@ -26,20 +26,21 @@ const fetchUserData = async (firebaseUser: FirebaseUser): Promise<User | null> =
     if (userDoc.exists()) {
         return { id: firebaseUser.uid, ...userDoc.data() } as User;
     }
-    // If user exists in Auth but not in Firestore, create the Firestore document.
-    // This is crucial for the admin user.
-    if (firebaseUser.email?.startsWith('admin')) {
-        const adminUser: Omit<User, 'id'> = {
-            email: firebaseUser.email!,
-            name: 'Admin',
-            role: 'admin',
-            avatarUrl: `https://placehold.co/100x100.png`
-        };
-        await setDoc(doc(db, "users", firebaseUser.uid), adminUser);
-        return { id: firebaseUser.uid, ...adminUser };
-    }
     return null;
 }
+
+const createAdminUser = async (firebaseUser: FirebaseUser): Promise<User> => {
+    const db = getFirestore(app);
+    const adminUser: Omit<User, 'id'> = {
+        email: firebaseUser.email!,
+        name: 'Admin',
+        role: 'admin',
+        avatarUrl: `https://placehold.co/100x100.png`
+    };
+    await setDoc(doc(db, "users", firebaseUser.uid), adminUser);
+    return { id: firebaseUser.uid, ...adminUser };
+}
+
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -51,7 +52,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const auth = getAuth(app);
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         if (firebaseUser) {
-            const userData = await fetchUserData(firebaseUser);
+            let userData = await fetchUserData(firebaseUser);
+            // This ensures that if an admin user exists in Auth but not Firestore, it gets created.
+            if (!userData && firebaseUser.email?.startsWith('admin')) {
+                userData = await createAdminUser(firebaseUser);
+            }
             setUser(userData);
         } else {
             setUser(null);
@@ -76,21 +81,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (credentials: { email: string; pass: string }): Promise<User | null> => {
     const auth = getAuth(app);
-    // First, try to sign in
     try {
         const userCredential = await signInWithEmailAndPassword(auth, credentials.email, credentials.pass);
         const userData = await fetchUserData(userCredential.user);
         setUser(userData);
         return userData;
     } catch (error: any) {
-        // If user is not found, and it's an admin, try to create it.
-        if (error.code === 'auth/user-not-found' && credentials.email.startsWith('admin')) {
-            const newUserCredential = await createUserWithEmailAndPassword(auth, credentials.email, credentials.pass);
-            const newAdminUser = await fetchUserData(newUserCredential.user); // fetchUserData will create the firestore doc
-            setUser(newAdminUser);
-            return newAdminUser;
+        // If login fails and it's the admin account, try to create it.
+        // 'auth/invalid-credential' is a common code for user-not-found or wrong-password.
+        if ((error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') && credentials.email === 'admin@elotech.com') {
+            try {
+                const newUserCredential = await createUserWithEmailAndPassword(auth, credentials.email, credentials.pass);
+                const newAdminUser = await createAdminUser(newUserCredential.user);
+                setUser(newAdminUser);
+                return newAdminUser;
+            } catch (creationError) {
+                console.error("Failed to create admin user:", creationError);
+                throw creationError; // Throw creation error to be caught by the UI
+            }
         }
-        // For any other error, re-throw it to be handled by the form.
+        // For other errors, re-throw them to be handled by the UI
         throw error;
     }
   };

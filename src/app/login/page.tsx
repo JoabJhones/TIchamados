@@ -28,13 +28,10 @@ export default function LoginPage() {
       if (user) {
         toast({ title: 'Login bem-sucedido!', description: `Bem-vindo de volta, ${user.name}.` });
         router.push('/');
-      } else {
-        // This case might not be reached if login throws an error, but it's good for safety.
-        throw new Error("Credenciais inválidas");
       }
     } catch (error: any) {
        let description = 'Ocorreu um erro ao tentar fazer login. Tente novamente mais tarde.';
-       // Firebase auth error codes
+       // Firebase auth error codes for invalid credentials or user not found
        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
            description = 'E-mail ou senha incorretos. Por favor, verifique suas credenciais.';
        } else if (error.code === 'auth/too-many-requests') {
@@ -71,6 +68,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
               />
             </div>
             <div className="space-y-2">
@@ -82,6 +80,7 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
               />
             </div>
             <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={isLoading}>
@@ -90,7 +89,7 @@ export default function LoginPage() {
           </form>
             <div className="mt-4 text-center text-sm">
                 Não tem uma conta?{' '}
-                <Link href="/register">
+                <Link href="/register" className="underline">
                     Cadastre-se
                 </Link>
             </div>
