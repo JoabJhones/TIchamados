@@ -72,6 +72,8 @@ export const addInteractionToTicket = async (ticketId: string, author: User | Te
 
     if (ticketSnap.exists()) {
         const ticketData = ticketSnap.data();
+        const authorRole = 'role' in author ? author.role : 'technician';
+        
         const newInteraction: TicketInteraction = {
             id: `int-${Date.now()}`,
             author: { // Storing a minimal author object
@@ -79,7 +81,7 @@ export const addInteractionToTicket = async (ticketId: string, author: User | Te
                 name: author.name,
                 email: author.email,
                 avatarUrl: author.avatarUrl,
-                role: 'role' in author ? author.role : undefined,
+                role: authorRole === 'admin' || authorRole === 'user' ? authorRole : undefined,
             },
             content,
             isInternal,
@@ -91,9 +93,9 @@ export const addInteractionToTicket = async (ticketId: string, author: User | Te
 
         let newStatus = ticketData.status;
         if (!isInternal && ticketData.status !== 'Concluído' && ticketData.status !== 'Cancelado') {
-             if('role' in author && author.role === 'admin') {
+             if(authorRole === 'admin') {
                 newStatus = 'Aguardando Usuário';
-             } else {
+             } else { // User or Technician without admin role
                 newStatus = 'Em Andamento';
              }
         }
