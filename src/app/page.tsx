@@ -27,29 +27,30 @@ export default function DashboardPage({ playNewMessageSfx }: DashboardPageProps)
     if (!user) return;
 
     const unsubscribe = listenToTickets(user.id, user.role, (newTickets) => {
-      if (isInitialLoad.current) {
-        setTickets(newTickets);
-        isInitialLoad.current = false;
-      } else {
-        // Check for new messages if the user is not an admin
-        if (user.role !== 'admin') {
-          newTickets.forEach(newTicket => {
-            const oldTicket = tickets.find(t => t.id === newTicket.id);
-            if (oldTicket && newTicket.interactions.length > oldTicket.interactions.length) {
-              const newInteraction = newTicket.interactions[newTicket.interactions.length - 1];
-              if (newInteraction.author.role === 'admin') {
-                  playNewMessageSfx?.();
-              }
+        setTickets(prevTickets => {
+            if (isInitialLoad.current) {
+                isInitialLoad.current = false;
+            } else {
+                 if (user.role !== 'admin') {
+                    newTickets.forEach(newTicket => {
+                        const oldTicket = prevTickets.find(t => t.id === newTicket.id);
+                        if (oldTicket && newTicket.interactions.length > oldTicket.interactions.length) {
+                            const newInteraction = newTicket.interactions[newTicket.interactions.length - 1];
+                            if (newInteraction.author.role === 'admin') {
+                                playNewMessageSfx?.();
+                            }
+                        }
+                    });
+                }
             }
-          });
-        }
-        setTickets(newTickets);
-      }
-      if (isLoading) setIsLoading(false);
+            return newTickets;
+        });
+        if (isLoading) setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user, tickets, isLoading, playNewMessageSfx]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, playNewMessageSfx]);
   
   if (isLoading) {
     return (

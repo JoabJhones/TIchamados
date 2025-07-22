@@ -27,44 +27,43 @@ export default function ManagementPage({ playNewTicketSfx, playNewMessageSfx }: 
     const isInitialLoad = useRef(true);
 
     useEffect(() => {
-        if (!user) return;
-        if (user.role !== 'admin') {
+        if (!user || user.role !== 'admin') {
             setIsLoading(false);
             return;
         }
 
         const unsubscribe = listenToTickets(user.id, user.role, (newTickets) => {
-            if (isInitialLoad.current) {
-                setTickets(newTickets);
-                isInitialLoad.current = false;
-            } else {
-                // Check for new tickets
-                if (newTickets.length > tickets.length) {
-                   const newTicketFound = newTickets.find(nt => !tickets.some(ot => ot.id === nt.id));
-                   if (newTicketFound) {
-                        playNewTicketSfx?.();
-                   }
-                }
-
-                // Check for new messages
-                newTickets.forEach(newTicket => {
-                    const oldTicket = tickets.find(t => t.id === newTicket.id);
-                    if (oldTicket && newTicket.interactions.length > oldTicket.interactions.length) {
-                        const newInteraction = newTicket.interactions[newTicket.interactions.length - 1];
-                        // Only play sound if the message is from a user
-                        if (newInteraction.author.role === 'user') {
-                            playNewMessageSfx?.();
+            setTickets(prevTickets => {
+                 if (isInitialLoad.current) {
+                    isInitialLoad.current = false;
+                } else {
+                     // Check for new tickets
+                    if (newTickets.length > prevTickets.length) {
+                        const newTicketFound = newTickets.find(nt => !prevTickets.some(ot => ot.id === nt.id));
+                        if (newTicketFound) {
+                            playNewTicketSfx?.();
                         }
                     }
-                });
 
-                setTickets(newTickets);
-            }
+                    // Check for new messages
+                    newTickets.forEach(newTicket => {
+                        const oldTicket = prevTickets.find(t => t.id === newTicket.id);
+                        if (oldTicket && newTicket.interactions.length > oldTicket.interactions.length) {
+                            const newInteraction = newTicket.interactions[newTicket.interactions.length - 1];
+                            if (newInteraction.author.role === 'user') {
+                                playNewMessageSfx?.();
+                            }
+                        }
+                    });
+                }
+                return newTickets;
+            });
             if (isLoading) setIsLoading(false);
         });
 
         return () => unsubscribe();
-    }, [user, tickets, isLoading, playNewTicketSfx, playNewMessageSfx]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user, playNewTicketSfx, playNewMessageSfx]);
 
     if (isLoading) {
         return <div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
