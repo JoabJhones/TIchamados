@@ -26,7 +26,7 @@ export default function RegisterPage() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const newUser = await register({ name, email, department, contact });
+      const newUser = await register({ name, email, department, contact, password });
       if (newUser) {
         toast({ title: 'Cadastro realizado com sucesso!', description: `Bem-vindo, ${newUser.name}!` });
         router.push('/');
@@ -37,7 +37,7 @@ export default function RegisterPage() {
        toast({
           variant: 'destructive',
           title: 'Erro no Cadastro',
-          description: 'Não foi possível realizar o cadastro. Tente novamente.',
+          description: 'Não foi possível realizar o cadastro. Verifique os dados ou tente novamente.',
         });
     } finally {
         setIsLoading(false);

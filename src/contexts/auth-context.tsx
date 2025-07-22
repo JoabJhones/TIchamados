@@ -3,22 +3,45 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { User } from '@/lib/types';
+import { auth, db } from '@/lib/firebase';
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (credentials: { email: string; pass: string }) => Promise<User | null>;
   logout: () => void;
-  register: (userInfo: Omit<User, 'id' | 'role' | 'avatarUrl'>) => Promise<User | null>;
+  register: (userInfo: Omit<User, 'id' | 'role' | 'avatarUrl'> & {password: string}) => Promise<User | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock user data for simulation
-const MOCK_USERS: User[] = [
-    { id: 'admin-1', name: 'Admin', email: 'admin', role: 'admin', avatarUrl: 'https://placehold.co/100x100' },
-    { id: 'user-1', name: 'Ana Silva', email: 'ana@teste.com', role: 'user', department: 'Vendas', contact: '1111', avatarUrl: 'https://placehold.co/100x100' },
-];
+const fetchUserData = async (firebaseUser: FirebaseUser): Promise<User | null> => {
+    const userDocRef = doc(db, 'users', firebaseUser.uid);
+    const userDoc = await getDoc(userDocRef);
+    if (userDoc.exists()) {
+        return { id: firebaseUser.uid, ...userDoc.data() } as User;
+    }
+    // Handle special admin case if not in firestore
+    if (firebaseUser.email?.startsWith('admin')) {
+        return {
+            id: firebaseUser.uid,
+            email: firebaseUser.email!,
+            name: 'Admin',
+            role: 'admin',
+            avatarUrl: 'https://placehold.co/100x100'
+        }
+    }
+    return null;
+}
+
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -27,19 +50,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
 
   useEffect(() => {
-    // Simulate checking for a logged-in user in localStorage
-    try {
-        const storedUser = localStorage.getItem('elotech-user');
-        if (storedUser) {
-            const parsedUser = JSON.parse(storedUser);
-            setUser(parsedUser);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+            const userData = await fetchUserData(firebaseUser);
+            setUser(userData);
+        } else {
+            setUser(null);
         }
-    } catch (error) {
-        console.error("Failed to parse user from localStorage", error);
-        localStorage.removeItem('elotech-user');
-    } finally {
         setLoading(false);
-    }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -56,41 +77,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 
   const login = async (credentials: { email: string; pass: string }): Promise<User | null> => {
-    // Admin login
-    if (credentials.email === 'admin' && credentials.pass === 'p@$$w0rd') {
-      const adminUser = MOCK_USERS.find(u => u.role === 'admin')!;
-      localStorage.setItem('elotech-user', JSON.stringify(adminUser));
-      setUser(adminUser);
-      return adminUser;
+    const userCredential = await signInWithEmailAndPassword(auth, credentials.email, credentials.pass);
+    if (userCredential.user) {
+        const userData = await fetchUserData(userCredential.user);
+        setUser(userData);
+        return userData;
     }
-    
-    // Regular user login (mock)
-    const foundUser = MOCK_USERS.find(u => u.email === credentials.email);
-    if (foundUser) {
-        // In a real app, you would check the password hash
-        localStorage.setItem('elotech-user', JSON.stringify(foundUser));
-        setUser(foundUser);
-        return foundUser;
+    return null;
+  };
+
+  const register = async (userInfo: Omit<User, 'id' | 'role' | 'avatarUrl'> & {password: string}): Promise<User | null> => {
+    const { email, password, ...rest } = userInfo;
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const firebaseUser = userCredential.user;
+
+    if (firebaseUser) {
+        const newUser: User = {
+            id: firebaseUser.uid,
+            email: email,
+            role: 'user',
+            avatarUrl: 'https://placehold.co/100x100',
+            ...rest
+        };
+        await setDoc(doc(db, "users", firebaseUser.uid), {
+            name: newUser.name,
+            email: newUser.email,
+            department: newUser.department,
+            contact: newUser.contact,
+            role: 'user',
+            avatarUrl: newUser.avatarUrl,
+        });
+        setUser(newUser);
+        return newUser;
     }
     
     return null;
   };
 
-  const register = async (userInfo: Omit<User, 'id' | 'role' | 'avatarUrl'>): Promise<User | null> => {
-    const newUser: User = {
-        ...userInfo,
-        id: `user-${Date.now()}`,
-        role: 'user',
-        avatarUrl: 'https://placehold.co/100x100'
-    };
-    MOCK_USERS.push(newUser); // In real app, save to DB
-    localStorage.setItem('elotech-user', JSON.stringify(newUser));
-    setUser(newUser);
-    return newUser;
-  };
-
-  const logout = () => {
-    localStorage.removeItem('elotech-user');
+  const logout = async () => {
+    await signOut(auth);
     setUser(null);
   };
 

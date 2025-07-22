@@ -15,8 +15,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const { toast } = useToast();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin');
+  const [password, setPassword] = useState('p@$$w0rd');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -28,17 +28,15 @@ export default function LoginPage() {
         toast({ title: 'Login bem-sucedido!', description: `Bem-vindo de volta, ${user.name}.` });
         router.push('/');
       } else {
-        toast({
-          variant: 'destructive',
-          title: 'Falha no Login',
-          description: 'Usuário ou senha inválidos. Por favor, tente novamente.',
-        });
+        throw new Error("Credenciais inválidas");
       }
-    } catch (error) {
+    } catch (error: any) {
        toast({
           variant: 'destructive',
-          title: 'Erro',
-          description: 'Ocorreu um erro ao tentar fazer login.',
+          title: 'Falha no Login',
+          description: error.message === 'Credenciais inválidas' 
+            ? 'Usuário ou senha inválidos. Por favor, tente novamente.'
+            : 'Ocorreu um erro ao tentar fazer login.',
         });
     } finally {
         setIsLoading(false);
@@ -62,7 +60,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="text"
-                placeholder="Digite seu usuário"
+                placeholder="Digite seu usuário ou e-mail"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
