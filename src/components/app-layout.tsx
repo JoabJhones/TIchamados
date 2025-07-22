@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -39,7 +40,7 @@ const navItems = [
   { href: '/tickets/new', label: 'Novo Chamado', icon: PlusCircle, admin: false },
   { href: '/knowledge-base', label: 'Base de Conhecimento', icon: BookText, admin: false },
   { href: '/management', label: 'Gerenciamento', icon: Users, admin: true },
-  { href: '/settings', label: 'Configurações', icon: Settings, admin: false },
+  { href: '/settings', label: 'Configurações', icon: Settings, admin: true },
 ];
 
 function MainNav() {
@@ -69,6 +70,7 @@ function MainNav() {
 
 function UserMenu() {
   const { user, logout } = useAuth();
+  const router = useRouter();
     
   if (!user) return null;
 
@@ -91,7 +93,7 @@ function UserMenu() {
       <DropdownMenuContent side="right" align="start" className="w-56">
         <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push('/settings')}>
           <Settings className="mr-2 h-4 w-4" />
           <span>Configurações</span>
         </DropdownMenuItem>
