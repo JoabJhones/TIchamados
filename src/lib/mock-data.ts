@@ -14,7 +14,7 @@ const technicians: Technician[] = [
   { id: 'tech-3', name: 'Gabriel Souza', email: 'gabriel.souza@elotech.com', avatarUrl: 'https://placehold.co/100x100', skills: ['Rede', 'Software', 'Hardware'], workload: 2 },
 ];
 
-const tickets: Ticket[] = [
+let tickets: Ticket[] = [
   {
     id: 'TKT-001',
     title: 'Computador não liga',
@@ -132,7 +132,7 @@ export const addTicket = (ticketData: Omit<Ticket, 'id' | 'status' | 'createdAt'
              { id: `int-${String(Date.now()).slice(-5)}`, author: ticketData.requester, content: 'Chamado criado.', createdAt: new Date(), isInternal: false }
         ]
     };
-    tickets.unshift(newTicket);
+    tickets = [newTicket, ...tickets];
     return newTicket;
 }
 
@@ -148,8 +148,14 @@ export const addInteractionToTicket = (ticketId: string, author: User | Technici
         };
         ticket.interactions.push(newInteraction);
         ticket.updatedAt = new Date();
-        if (!isInternal) {
-            ticket.status = 'Aguardando Usuário';
+        if (!isInternal && ticket.status !== 'Concluído' && ticket.status !== 'Cancelado') {
+             // If admin is replying, change status to 'Awaiting User'
+             if(author.role === 'admin') {
+                ticket.status = 'Aguardando Usuário';
+             } else {
+                // If user is replying, change status back to 'In Progress' if it was 'Awaiting User'
+                ticket.status = 'Em Andamento';
+             }
         }
         return ticket;
     }
@@ -160,6 +166,18 @@ export const addInteractionToTicket = (ticketId: string, author: User | Technici
 export const getTicketById = (id: string) => tickets.find(t => t.id === id);
 export const getUsers = () => users;
 export const getTechnicians = () => technicians;
+
+export const addTechnician = (techData: Omit<Technician, 'id' | 'avatarUrl' | 'workload'>) => {
+    const newTechnician: Technician = {
+        id: `tech-${String(Date.now()).slice(-5)}`,
+        avatarUrl: `https://placehold.co/100x100?text=${techData.name[0]}`,
+        workload: 0,
+        ...techData
+    };
+    technicians.push(newTechnician);
+    return newTechnician;
+}
+
 export const getKnowledgeArticles = () => articles;
 export const TICKET_CATEGORIES: readonly string[] = ['Rede', 'Software', 'Hardware', 'Acesso', 'Outros'];
 export const TICKET_PRIORITIES: readonly string[] = ['Baixa', 'Média', 'Alta', 'Crítica'];

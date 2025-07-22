@@ -4,6 +4,7 @@
 import { useAuth } from "@/contexts/auth-context";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { TechnicianManagement } from "@/components/settings/technician-management";
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
@@ -34,16 +35,7 @@ export default function SettingsPage() {
       <h2 className="font-headline text-3xl font-bold tracking-tight">
         Configurações
       </h2>
-       <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed shadow-sm">
-        <div className="flex flex-col items-center gap-1 text-center">
-          <h3 className="text-2xl font-bold tracking-tight">
-            Em breve
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Opções de personalização e configurações da conta estarão disponíveis aqui.
-          </p>
-        </div>
-      </div>
+      <TechnicianManagement />
     </div>
   );
 }
