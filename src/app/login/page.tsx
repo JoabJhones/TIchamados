@@ -15,8 +15,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const { toast } = useToast();
-  const [email, setEmail] = useState('admin@elotech.com');
-  const [password, setPassword] = useState('p@$$w0rd');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
