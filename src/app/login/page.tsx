@@ -15,7 +15,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const { toast } = useToast();
-  const [email, setEmail] = useState('admin');
+  const [email, setEmail] = useState('admin@elotech.com');
   const [password, setPassword] = useState('p@$$w0rd');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -34,9 +34,7 @@ export default function LoginPage() {
        toast({
           variant: 'destructive',
           title: 'Falha no Login',
-          description: error.message === 'Credenciais inválidas' 
-            ? 'Usuário ou senha inválidos. Por favor, tente novamente.'
-            : 'Ocorreu um erro ao tentar fazer login.',
+          description: 'Ocorreu um erro ao tentar fazer login. Verifique suas credenciais ou se o usuário existe no Firebase.',
         });
     } finally {
         setIsLoading(false);
@@ -56,11 +54,11 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Usuário</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
-                type="text"
-                placeholder="Digite seu usuário ou e-mail"
+                type="email"
+                placeholder="Digite seu e-mail"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -83,7 +81,7 @@ export default function LoginPage() {
           </form>
             <div className="mt-4 text-center text-sm">
                 Não tem uma conta?{' '}
-                <Link href="/register" className="underline">
+                <Link href="/register">
                     Cadastre-se
                 </Link>
             </div>

@@ -31,13 +31,20 @@ const fetchUserData = async (firebaseUser: FirebaseUser): Promise<User | null> =
     }
     // Handle special admin case if not in firestore
     if (firebaseUser.email?.startsWith('admin')) {
-        return {
+        const adminUser = {
             id: firebaseUser.uid,
             email: firebaseUser.email!,
             name: 'Admin',
-            role: 'admin',
-            avatarUrl: 'https://placehold.co/100x100'
-        }
+            role: 'admin' as 'admin',
+            avatarUrl: `https://placehold.co/100x100.png`
+        };
+        await setDoc(doc(db, "users", firebaseUser.uid), {
+           name: adminUser.name,
+           email: adminUser.email,
+           role: 'admin',
+           avatarUrl: adminUser.avatarUrl,
+        });
+        return adminUser;
     }
     return null;
 }
@@ -96,7 +103,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             id: firebaseUser.uid,
             email: email,
             role: 'user',
-            avatarUrl: 'https://placehold.co/100x100',
+            avatarUrl: 'https://placehold.co/100x100.png',
             ...rest
         };
         await setDoc(doc(db, "users", firebaseUser.uid), {
@@ -117,6 +124,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     await signOut(auth);
     setUser(null);
+    router.push('/login');
   };
 
   return (

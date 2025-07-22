@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   BookText,
   Home,
@@ -33,7 +33,6 @@ import {
 } from '@/components/ui/sidebar';
 import { Logo } from './logo';
 import { useAuth } from '@/contexts/auth-context';
-import { useRouter } from 'next/navigation';
 
 const navItems = [
   { href: '/', label: 'Painel', icon: Home, admin: false },
@@ -52,7 +51,7 @@ function MainNav() {
   return (
     <SidebarMenu>
       {filteredNavItems.map((item) => (
-        <Link href={item.href} key={item.href} passHref>
+        <Link href={item.href} key={item.href}>
           <SidebarMenuItem>
             <SidebarMenuButton
               isActive={pathname === item.href}
@@ -70,12 +69,6 @@ function MainNav() {
 
 function UserMenu() {
   const { user, logout } = useAuth();
-  const router = useRouter();
-
-  const handleLogout = () => {
-    logout();
-    router.push('/login');
-  };
     
   if (!user) return null;
 
@@ -84,7 +77,7 @@ function UserMenu() {
       <DropdownMenuTrigger asChild>
         <button className="flex w-full items-center gap-2 rounded-md p-2 text-left text-sm outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring">
           <Avatar className="h-8 w-8">
-            <AvatarImage src="https://placehold.co/100x100" alt={user.name} data-ai-hint="person avatar" />
+            <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="person avatar" />
             <AvatarFallback>{user.name?.[0].toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col overflow-hidden">
@@ -103,7 +96,7 @@ function UserMenu() {
           <span>Configurações</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout}>
+        <DropdownMenuItem onClick={logout}>
           <LogOut className="mr-2 h-4 w-4" />
           <span>Sair</span>
         </DropdownMenuItem>
@@ -147,14 +140,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
     )
   }
-
+  
   if (isAuthPage) {
     return (
         <div className="flex flex-col min-h-screen bg-background">
-            <main className="flex-grow">{children}</main>
+            <main className="flex-grow flex">{children}</main>
             <AppFooter />
         </div>
     );
+  }
+
+  // If not authenticated and not on an auth page, show loading or redirect.
+  // The AuthProvider already handles redirection, so we can just show a loading state.
+  if (!user) {
+    return (
+        <div className="flex min-h-screen items-center justify-center bg-background">
+            <p>Redirecionando para o login...</p>
+        </div>
+    )
   }
   
   return (

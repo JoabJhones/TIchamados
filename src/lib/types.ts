@@ -17,7 +17,7 @@ export interface Technician {
   name: string;
   email: string;
   avatarUrl: string;
-  skills: (TicketCategory | 'Outros')[];
+  skills: string[];
   workload: number;
 }
 
