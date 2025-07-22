@@ -1,5 +1,7 @@
 
 import type { Ticket, User, Technician, KnowledgeArticle, TicketPriority, TicketCategory, TicketInteraction } from './types';
+import { collection, addDoc, getDocs, doc, getDoc, query, where, writeBatch, orderBy, limit } from 'firebase/firestore';
+import { db } from './firebase';
 
 const users: User[] = [
   { id: 'user-1', name: 'Ana Silva', email: 'ana.silva@example.com', avatarUrl: 'https://placehold.co/100x100', role: 'user', department: 'Vendas', contact: '1111' },
@@ -8,11 +10,6 @@ const users: User[] = [
   { id: 'admin-1', name: 'Admin', email: 'admin@elotech.com', avatarUrl: 'https://placehold.co/100x100', role: 'admin' },
 ];
 
-const technicians: Technician[] = [
-  { id: 'tech-1', name: 'Roberto Almeida', email: 'roberto.almeida@elotech.com', avatarUrl: 'https://placehold.co/100x100', skills: ['Hardware', 'Rede'], workload: 3 },
-  { id: 'tech-2', name: 'Fernanda Lima', email: 'fernanda.lima@elotech.com', avatarUrl: 'https://placehold.co/100x100', skills: ['Software', 'Acesso'], workload: 5 },
-  { id: 'tech-3', name: 'Gabriel Souza', email: 'gabriel.souza@elotech.com', avatarUrl: 'https://placehold.co/100x100', skills: ['Rede', 'Software', 'Hardware'], workload: 2 },
-];
 
 let tickets: Ticket[] = [
   {
@@ -23,71 +20,11 @@ let tickets: Ticket[] = [
     priority: 'Alta',
     category: 'Hardware',
     requester: users[0],
-    assignedTo: technicians[0],
+    assignedTo: undefined,
     createdAt: new Date('2024-07-22T09:00:00Z'),
     updatedAt: new Date('2024-07-22T09:30:00Z'),
     interactions: [
       { id: 'int-1', author: users[0], content: 'Chamado criado.', createdAt: new Date('2024-07-22T09:00:00Z'), isInternal: false }
-    ]
-  },
-  {
-    id: 'TKT-002',
-    title: 'Impressora offline',
-    description: 'A impressora do departamento de finanças está aparecendo como offline para todos. Reiniciamos a impressora e o roteador, mas o problema persiste.',
-    status: 'Em Andamento',
-    priority: 'Média',
-    category: 'Rede',
-    requester: users[1],
-    assignedTo: technicians[2],
-    createdAt: new Date('2024-07-22T10:15:00Z'),
-    updatedAt: new Date('2024-07-22T10:45:00Z'),
-    interactions: [
-      { id: 'int-2', author: users[1], content: 'Chamado criado.', createdAt: new Date('2024-07-22T10:15:00Z'), isInternal: false }
-    ]
-  },
-  {
-    id: 'TKT-003',
-    title: 'Erro ao abrir o sistema de Vendas',
-    description: 'Estou recebendo um erro "Falha na conexão com o banco de dados" ao tentar abrir o sistema de Vendas. Outros sistemas estão funcionando normalmente.',
-    status: 'Concluído',
-    priority: 'Crítica',
-    category: 'Software',
-    requester: users[2],
-    assignedTo: technicians[1],
-    createdAt: new Date('2024-07-21T14:00:00Z'),
-    updatedAt: new Date('2024-07-21T16:30:00Z'),
-    interactions: [
-      { id: 'int-3', author: users[2], content: 'Chamado criado.', createdAt: new Date('2024-07-21T14:00:00Z'), isInternal: false },
-      { id: 'int-4', author: technicians[1], content: 'Problema resolvido. A conexão com o banco de dados foi restabelecida.', createdAt: new Date('2024-07-21T16:30:00Z'), isInternal: false }
-    ]
-  },
-  {
-    id: 'TKT-004',
-    title: 'Solicitação de acesso à pasta compartilhada',
-    description: 'Preciso de acesso de leitura e escrita à pasta compartilhada do projeto "Órion" na rede.',
-    status: 'Aberto',
-    priority: 'Baixa',
-    category: 'Acesso',
-    requester: users[0],
-    createdAt: new Date('2024-07-23T08:30:00Z'),
-    updatedAt: new Date('2024-07-23T08:30:00Z'),
-    interactions: [
-       { id: 'int-5', author: users[0], content: 'Chamado criado.', createdAt: new Date('2024-07-23T08:30:00Z'), isInternal: false }
-    ]
-  },
-  {
-    id: 'TKT-005',
-    title: 'Wi-Fi instável na sala de reuniões',
-    description: 'A conexão Wi-Fi na sala de reuniões "Aquário" está caindo constantemente durante as videochamadas.',
-    status: 'Em Andamento',
-    priority: 'Alta',
-    category: 'Rede',
-    requester: users[1],
-    assignedTo: technicians[2],
-    createdAt: new Date('2024-07-23T11:00:00Z'),
-    updatedAt: new Date('2024-07-23T11:20:00Z'),
-    interactions: [
-      { id: 'int-6', author: users[1], content: 'Chamado criado.', createdAt: new Date('2024-07-23T11:00:00Z'), isInternal: false }
     ]
   },
 ];
@@ -111,71 +48,142 @@ const articles: KnowledgeArticle[] = [
     },
 ];
 
-export const getTickets = (userId?: string, userRole?: string) => {
+export const getTickets = async (userId?: string, userRole?: string): Promise<Ticket[]> => {
+    const ticketsCollection = collection(db, 'tickets');
+    let q;
     if (userRole === 'admin') {
-        return [...tickets].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        q = query(ticketsCollection, orderBy('createdAt', 'desc'));
+    } else if (userId) {
+        q = query(ticketsCollection, where('requester.id', '==', userId), orderBy('createdAt', 'desc'));
+    } else {
+        return [];
     }
-    if (userId) {
-        return tickets.filter(t => t.requester.id === userId).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-    }
-    return [];
+
+    const querySnapshot = await getDocs(q);
+    const tickets = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt.toDate(),
+            updatedAt: data.updatedAt.toDate(),
+            interactions: data.interactions.map((interaction: any) => ({
+                ...interaction,
+                createdAt: interaction.createdAt.toDate()
+            }))
+        } as Ticket;
+    });
+
+    return tickets;
 };
 
-export const addTicket = (ticketData: Omit<Ticket, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'requester' | 'interactions'> & {requester: User}) => {
-    const newTicket: Ticket = {
-        id: `TKT-${String(Date.now()).slice(-5)}`,
+export const addTicket = async (ticketData: Omit<Ticket, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'interactions'> & {requester: User}) => {
+    const newTicketData = {
         ...ticketData,
         status: 'Aberto',
         createdAt: new Date(),
         updatedAt: new Date(),
         interactions: [
-             { id: `int-${String(Date.now()).slice(-5)}`, author: ticketData.requester, content: 'Chamado criado.', createdAt: new Date(), isInternal: false }
+             { author: ticketData.requester, content: 'Chamado criado.', createdAt: new Date(), isInternal: false }
         ]
     };
-    tickets = [newTicket, ...tickets];
-    return newTicket;
+    const docRef = await addDoc(collection(db, "tickets"), newTicketData);
+    return { id: docRef.id, ...newTicketData };
 }
 
-export const addInteractionToTicket = (ticketId: string, author: User | Technician, content: string, isInternal: boolean): Ticket | undefined => {
-    const ticket = getTicketById(ticketId);
-    if (ticket) {
-        const newInteraction: TicketInteraction = {
-            id: `int-${String(Date.now()).slice(-5)}`,
+export const addInteractionToTicket = async (ticketId: string, author: User | Technician, content: string, isInternal: boolean): Promise<Ticket | undefined> => {
+    const ticketRef = doc(db, 'tickets', ticketId);
+    const ticketSnap = await getDoc(ticketRef);
+
+    if (ticketSnap.exists()) {
+        const ticket = ticketSnap.data() as Ticket;
+        const newInteraction = {
+            id: `int-${Date.now()}`,
             author,
             content,
             isInternal,
             createdAt: new Date(),
         };
-        ticket.interactions.push(newInteraction);
-        ticket.updatedAt = new Date();
+
+        const currentInteractions = ticket.interactions || [];
+        const updatedInteractions = [...currentInteractions, newInteraction];
+
+        let newStatus = ticket.status;
         if (!isInternal && ticket.status !== 'Concluído' && ticket.status !== 'Cancelado') {
-             // If admin is replying, change status to 'Awaiting User'
              if(author.role === 'admin') {
-                ticket.status = 'Aguardando Usuário';
+                newStatus = 'Aguardando Usuário';
              } else {
-                // If user is replying, change status back to 'In Progress' if it was 'Awaiting User'
-                ticket.status = 'Em Andamento';
+                newStatus = 'Em Andamento';
              }
         }
-        return ticket;
+
+        const batch = writeBatch(db);
+        batch.update(ticketRef, { 
+            interactions: updatedInteractions, 
+            updatedAt: new Date(),
+            status: newStatus 
+        });
+        await batch.commit();
+
+        const updatedTicketSnap = await getDoc(ticketRef);
+        const updatedData = updatedTicketSnap.data();
+        if (!updatedData) return undefined;
+        
+        return {
+            id: updatedTicketSnap.id,
+            ...updatedData,
+            createdAt: updatedData.createdAt.toDate(),
+            updatedAt: updatedData.updatedAt.toDate(),
+            interactions: updatedData.interactions.map((interaction: any) => ({
+                ...interaction,
+                createdAt: interaction.createdAt.toDate()
+            }))
+        } as Ticket;
     }
     return undefined;
 };
 
 
-export const getTicketById = (id: string) => tickets.find(t => t.id === id);
-export const getUsers = () => users;
-export const getTechnicians = () => technicians;
+export const getTicketById = async (id: string): Promise<Ticket | null> => {
+    const ticketRef = doc(db, 'tickets', id);
+    const ticketSnap = await getDoc(ticketRef);
 
-export const addTechnician = (techData: Omit<Technician, 'id' | 'avatarUrl' | 'workload'>) => {
-    const newTechnician: Technician = {
-        id: `tech-${String(Date.now()).slice(-5)}`,
+    if (ticketSnap.exists()) {
+        const data = ticketSnap.data();
+        return {
+            id: ticketSnap.id,
+            ...data,
+            createdAt: data.createdAt.toDate(),
+            updatedAt: data.updatedAt.toDate(),
+            interactions: data.interactions.map((interaction: any) => ({
+                ...interaction,
+                createdAt: interaction.createdAt.toDate()
+            }))
+        } as Ticket;
+    }
+    return null;
+}
+export const getUsers = () => users;
+
+export const getTechnicians = async (): Promise<Technician[]> => {
+    const techniciansCollection = collection(db, 'technicians');
+    const querySnapshot = await getDocs(techniciansCollection);
+    const technicians = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    } as Technician));
+    return technicians;
+};
+
+
+export const addTechnician = async (techData: Omit<Technician, 'id' | 'avatarUrl' | 'workload'>) => {
+    const newTechnicianData = {
+        ...techData,
         avatarUrl: `https://placehold.co/100x100?text=${techData.name[0]}`,
         workload: 0,
-        ...techData
     };
-    technicians.push(newTechnician);
-    return newTechnician;
+    const docRef = await addDoc(collection(db, "technicians"), newTechnicianData);
+    return { id: docRef.id, ...newTechnicianData };
 }
 
 export const getKnowledgeArticles = () => articles;

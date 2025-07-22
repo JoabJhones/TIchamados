@@ -10,10 +10,23 @@ import {
 import { RecentTickets } from '@/components/dashboard/recent-tickets';
 import { getTickets } from '@/lib/mock-data';
 import { useAuth } from '@/contexts/auth-context';
+import { useEffect, useState } from 'react';
+import type { Ticket } from '@/lib/types';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const tickets = getTickets(user?.id, user?.role);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      setIsLoading(true);
+      getTickets(user.id, user.role)
+        .then(setTickets)
+        .finally(() => setIsLoading(false));
+    }
+  }, [user]);
+
   const openTickets = tickets.filter(t => t.status === 'Aberto').length;
   const inProgressTickets = tickets.filter(t => t.status === 'Em Andamento').length;
   const completedTickets = tickets.filter(t => t.status === 'Concluído').length;
@@ -70,7 +83,7 @@ export default function DashboardPage() {
         </Card>
       </div>
       <div>
-        <RecentTickets tickets={tickets.slice(0, 10)} />
+        <RecentTickets tickets={tickets.slice(0, 10)} isLoading={isLoading}/>
       </div>
     </div>
   );

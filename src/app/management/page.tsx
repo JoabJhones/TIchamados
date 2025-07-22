@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Card,
@@ -7,14 +8,27 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getTickets } from "@/lib/mock-data";
-import { Activity, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle, Clock, Loader2 } from "lucide-react";
 import { TicketCharts } from "@/components/management/ticket-charts";
 import { RecentTickets } from "@/components/dashboard/recent-tickets";
 import { useAuth } from "@/contexts/auth-context";
+import { useState, useEffect } from "react";
+import type { Ticket } from "@/lib/types";
 
 export default function ManagementPage() {
     const { user } = useAuth();
-    const tickets = getTickets(user?.id, user?.role);
+    const [tickets, setTickets] = useState<Ticket[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        if (user?.role === 'admin') {
+            setIsLoading(true);
+            getTickets(user.id, user.role)
+                .then(setTickets)
+                .finally(() => setIsLoading(false));
+        }
+    }, [user]);
+
     const openTickets = tickets.filter(t => t.status === 'Aberto').length;
     const inProgressTickets = tickets.filter(t => t.status === 'Em Andamento').length;
     const criticalTickets = tickets.filter(t => t.priority === 'Crítica').length;
@@ -38,7 +52,7 @@ export default function ManagementPage() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{openTickets}</div>
+            {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold">{openTickets}</div>}
             <p className="text-xs text-muted-foreground">Aguardando atribuição</p>
           </CardContent>
         </Card>
@@ -48,7 +62,7 @@ export default function ManagementPage() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{inProgressTickets}</div>
+             {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold">{inProgressTickets}</div>}
             <p className="text-xs text-muted-foreground">Sendo atendidos pela equipe</p>
           </CardContent>
         </Card>
@@ -58,7 +72,7 @@ export default function ManagementPage() {
             <AlertTriangle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{criticalTickets}</div>
+             {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold">{criticalTickets}</div>}
             <p className="text-xs text-muted-foreground">Chamados com prioridade crítica</p>
           </CardContent>
         </Card>
@@ -68,7 +82,7 @@ export default function ManagementPage() {
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{completedTickets}</div>
+             {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold">{completedTickets}</div>}
             <p className="text-xs text-muted-foreground">Resolvidos pela equipe</p>
           </CardContent>
         </Card>
@@ -85,7 +99,7 @@ export default function ManagementPage() {
                     <CardDescription>Chamados que foram atualizados recentemente.</CardDescription>
                 </CardHeader>
                 <CardContent className="pl-2">
-                    <RecentTickets tickets={tickets.slice(0,5)} />
+                    <RecentTickets tickets={tickets.slice(0,5)} isLoading={isLoading}/>
                 </CardContent>
             </Card>
         </div>

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -26,7 +26,8 @@ const formSchema = z.object({
 
 export function TechnicianManagement() {
   const { toast } = useToast();
-  const [technicians, setTechnicians] = useState<Technician[]>(getTechnicians());
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -34,11 +35,29 @@ export function TechnicianManagement() {
     defaultValues: { name: '', email: '', skills: '' },
   });
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
+  useEffect(() => {
+    async function fetchTechnicians() {
+      try {
+        const fetchedTechnicians = await getTechnicians();
+        setTechnicians(fetchedTechnicians);
+      } catch (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao buscar técnicos',
+          description: 'Não foi possível carregar a lista de técnicos.',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchTechnicians();
+  }, [toast]);
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
     try {
       const skillsArray = values.skills.split(',').map(s => s.trim());
-      const newTechnician = addTechnician({ ...values, skills: skillsArray });
+      const newTechnician = await addTechnician({ ...values, skills: skillsArray });
       setTechnicians(prev => [...prev, newTechnician]);
       toast({
         title: 'Sucesso!',
@@ -95,41 +114,47 @@ export function TechnicianManagement() {
           <CardDescription>Lista de todos os técnicos disponíveis para atribuição.</CardDescription>
         </CardHeader>
         <CardContent>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Técnico</TableHead>
-                        <TableHead>Habilidades</TableHead>
-                        <TableHead className="text-right">Carga</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {technicians.map(tech => (
-                        <TableRow key={tech.id}>
-                            <TableCell>
-                                <div className="flex items-center gap-2">
-                                    <Avatar className="h-8 w-8">
-                                        <AvatarImage src={tech.avatarUrl} alt={tech.name} />
-                                        <AvatarFallback>{tech.name[0]}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="font-medium">{tech.name}</p>
-                                        <p className="text-sm text-muted-foreground">{tech.email}</p>
-                                    </div>
-                                </div>
-                            </TableCell>
-                            <TableCell>
-                                <div className="flex flex-wrap gap-1">
-                                    {tech.skills.map(skill => (
-                                        <Badge key={skill} variant="secondary">{skill}</Badge>
-                                    ))}
-                                </div>
-                            </TableCell>
-                            <TableCell className="text-right">{tech.workload}</TableCell>
+            {isLoading ? (
+                <div className="flex justify-center items-center h-40">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+            ) : (
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Técnico</TableHead>
+                            <TableHead>Habilidades</TableHead>
+                            <TableHead className="text-right">Carga</TableHead>
                         </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+                    </TableHeader>
+                    <TableBody>
+                        {technicians.map(tech => (
+                            <TableRow key={tech.id}>
+                                <TableCell>
+                                    <div className="flex items-center gap-2">
+                                        <Avatar className="h-8 w-8">
+                                            <AvatarImage src={tech.avatarUrl} alt={tech.name} />
+                                            <AvatarFallback>{tech.name[0]}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="font-medium">{tech.name}</p>
+                                            <p className="text-sm text-muted-foreground">{tech.email}</p>
+                                        </div>
+                                    </div>
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex flex-wrap gap-1">
+                                        {tech.skills.map(skill => (
+                                            <Badge key={skill} variant="secondary">{skill}</Badge>
+                                        ))}
+                                    </div>
+                                </TableCell>
+                                <TableCell className="text-right">{tech.workload}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            )}
         </CardContent>
       </Card>
     </div>

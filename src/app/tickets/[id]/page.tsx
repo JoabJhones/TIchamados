@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { getTicketById, getTechnicians, addInteractionToTicket } from "@/lib/mock-data";
@@ -16,10 +15,10 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAuth } from "@/contexts/auth-context";
 import { TICKET_PRIORITIES, TICKET_STATUSES } from "@/lib/constants";
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-
+import type { Ticket, Technician } from "@/lib/types";
 
 const priorityVariantMap: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
   'Crítica': 'destructive',
@@ -42,15 +41,49 @@ export default function TicketDetailsPage() {
     const { user } = useAuth();
     const { toast } = useToast();
     
-    // Using a state for the ticket to force re-render on update
-    const [ticket, setTicket] = useState(() => getTicketById(ticketId));
+    const [ticket, setTicket] = useState<Ticket | null>(null);
+    const [technicians, setTechnicians] = useState<Technician[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [newComment, setNewComment] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
-    const technicians = getTechnicians();
+
+    const fetchTicketDetails = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const fetchedTicket = await getTicketById(ticketId);
+            if (fetchedTicket) {
+                setTicket(fetchedTicket);
+            } else {
+                notFound();
+            }
+
+            if (user?.role === 'admin') {
+                const fetchedTechnicians = await getTechnicians();
+                setTechnicians(fetchedTechnicians);
+            }
+        } catch (error) {
+            toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar os detalhes do chamado."});
+            notFound();
+        } finally {
+            setIsLoading(false);
+        }
+    }, [ticketId, user?.role, toast]);
+
+    useEffect(() => {
+        fetchTicketDetails();
+    }, [fetchTicketDetails]);
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-1 items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+        )
+    }
 
     if (!ticket) {
-        notFound();
+        // This case is handled by notFound(), but it's good for type safety
+        return null;
     }
     
     // Authorization: only admin or the ticket requester can see the ticket
@@ -65,15 +98,14 @@ export default function TicketDetailsPage() {
 
     const isAdmin = user?.role === 'admin';
 
-    const handleAddInteraction = (isInternal: boolean) => {
+    const handleAddInteraction = async (isInternal: boolean) => {
         if (!newComment.trim() || !user) return;
         setIsSubmitting(true);
         
-        // Simulate API call
-        setTimeout(() => {
-            const updatedTicket = addInteractionToTicket(ticket.id, user, newComment, isInternal);
+        try {
+            const updatedTicket = await addInteractionToTicket(ticket.id, user, newComment, isInternal);
             if (updatedTicket) {
-                setTicket({...updatedTicket}); // Update state to re-render
+                setTicket(updatedTicket); // Update state to re-render
                 setNewComment("");
                 toast({
                     title: "Sucesso!",
@@ -86,8 +118,15 @@ export default function TicketDetailsPage() {
                     description: "Não foi possível adicionar o comentário.",
                 });
             }
-            setIsSubmitting(false);
-        }, 500);
+        } catch (error) {
+             toast({
+                variant: 'destructive',
+                title: "Erro",
+                description: "Ocorreu uma falha ao adicionar o comentário.",
+            });
+        } finally {
+             setIsSubmitting(false);
+        }
     }
 
     return (
@@ -98,7 +137,7 @@ export default function TicketDetailsPage() {
                     <span className="sr-only">Voltar</span>
                 </Button>
                 <h2 className="text-3xl font-bold tracking-tight font-headline">
-                   Detalhes do Chamado #{ticket.id}
+                   Detalhes do Chamado #{ticket.id.substring(0, 7)}...
                 </h2>
                 <Badge variant={priorityVariantMap[ticket.priority]}>{ticket.priority}</Badge>
             </div>

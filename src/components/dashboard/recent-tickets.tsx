@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
+import { Skeleton } from '../ui/skeleton';
 
 const priorityVariantMap: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
   'Crítica': 'destructive',
@@ -36,7 +38,7 @@ const statusColorMap: { [key: string]: string } = {
     'Cancelado': 'bg-gray-500',
 }
 
-export function RecentTickets({ tickets }: { tickets: Ticket[] }) {
+export function RecentTickets({ tickets, isLoading }: { tickets: Ticket[], isLoading: boolean }) {
   const router = useRouter();
 
   const handleTicketClick = (ticketId: string) => {
@@ -62,30 +64,47 @@ export function RecentTickets({ tickets }: { tickets: Ticket[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {tickets.map((ticket) => (
-              <TableRow key={ticket.id} onClick={() => handleTicketClick(ticket.id)} className="cursor-pointer">
-                <TableCell>
-                  <div className="font-medium">{ticket.title}</div>
-                  <div className="text-sm text-muted-foreground md:hidden">
-                    {ticket.id}
-                  </div>
-                </TableCell>
-                <TableCell className="hidden md:table-cell">
-                    <div className="flex items-center gap-2">
-                        <span className={cn("h-2 w-2 rounded-full", statusColorMap[ticket.status])} />
-                        {ticket.status}
+            {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                        <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
+                        <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-5 w-28 ml-auto" /></TableCell>
+                    </TableRow>
+                ))
+            ) : tickets.length === 0 ? (
+                <TableRow>
+                    <TableCell colSpan={4} className="text-center h-24">
+                        Nenhum chamado encontrado.
+                    </TableCell>
+                </TableRow>
+            ) : (
+                tickets.map((ticket) => (
+                <TableRow key={ticket.id} onClick={() => handleTicketClick(ticket.id)} className="cursor-pointer">
+                    <TableCell>
+                    <div className="font-medium">{ticket.title}</div>
+                    <div className="text-sm text-muted-foreground md:hidden">
+                        {ticket.id}
                     </div>
-                </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  <Badge variant={priorityVariantMap[ticket.priority] || 'outline'}>
-                    {ticket.priority}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  {format(ticket.createdAt, "dd 'de' MMM, yyyy", { locale: ptBR })}
-                </TableCell>
-              </TableRow>
-            ))}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                        <div className="flex items-center gap-2">
+                            <span className={cn("h-2 w-2 rounded-full", statusColorMap[ticket.status])} />
+                            {ticket.status}
+                        </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                    <Badge variant={priorityVariantMap[ticket.priority] || 'outline'}>
+                        {ticket.priority}
+                    </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                    {format(ticket.createdAt, "dd 'de' MMM, yyyy", { locale: ptBR })}
+                    </TableCell>
+                </TableRow>
+                ))
+            )}
           </TableBody>
         </Table>
       </CardContent>

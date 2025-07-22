@@ -97,7 +97,7 @@ export function CreateTicketForm() {
     }
   };
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) {
         toast({ variant: 'destructive', title: 'Erro de autenticação', description: 'Você precisa estar logado para criar um chamado.' });
         return;
@@ -105,26 +105,23 @@ export function CreateTicketForm() {
     
     setIsSubmitting(true);
     
-    const newTicket = {
-      id: `TKT-${String(Date.now()).slice(-5)}`,
-      status: 'Aberto' as const,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      requester: user,
-      ...values,
-    };
-    
-    // Simulate API call
-    setTimeout(() => {
-        addTicket(newTicket);
+    try {
+        await addTicket({ ...values, requester: user });
         toast({
             title: 'Chamado Criado!',
             description: 'Seu chamado foi enviado para a nossa equipe de suporte.',
         });
         form.reset();
         router.push('/');
+    } catch (error) {
+         toast({
+            variant: 'destructive',
+            title: 'Erro ao Criar Chamado',
+            description: 'Não foi possível criar o seu chamado. Tente novamente mais tarde.',
+        });
+    } finally {
         setIsSubmitting(false);
-    }, 1000);
+    }
   }
 
   return (
