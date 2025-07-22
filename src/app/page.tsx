@@ -10,57 +10,25 @@ import {
 import { RecentTickets } from '@/components/dashboard/recent-tickets';
 import { listenToTickets } from '@/lib/mock-data';
 import { useAuth } from '@/contexts/auth-context';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import type { Ticket } from '@/lib/types';
 
-interface DashboardPageProps {
-  playNewTicketSfx?: () => void;
-  playNewMessageSfx?: () => void;
-}
-
-
-export default function DashboardPage({ playNewTicketSfx, playNewMessageSfx }: DashboardPageProps) {
+export default function DashboardPage() {
   const { user } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const initialLoadRef = useRef(true);
 
   useEffect(() => {
     if (!user) return;
 
     setIsLoading(true);
     const unsubscribe = listenToTickets(user.id, user.role, (newTickets) => {
-        
-        if (initialLoadRef.current) {
-            setTickets(newTickets);
-            initialLoadRef.current = false;
-        } else {
-            const oldTicketIds = tickets.map(t => t.id);
-            const isNewTicket = newTickets.some(nt => !oldTicketIds.includes(nt.id));
-
-            if (user.role === 'admin' && isNewTicket) {
-                 playNewTicketSfx?.();
-            } else {
-                 for (const newTicket of newTickets) {
-                    const oldTicket = tickets.find(t => t.id === newTicket.id);
-                    if (oldTicket && newTicket.interactions.length > oldTicket.interactions.length) {
-                         const lastInteraction = newTicket.interactions[newTicket.interactions.length - 1];
-                         // Play sound if the user is an admin and the author is not, or vice-versa
-                         if ((user.role === 'admin' && lastInteraction.author.role !== 'admin') || (user.role !== 'admin' && lastInteraction.author.role === 'admin')) {
-                            playNewMessageSfx?.();
-                            break;
-                         }
-                    }
-                }
-            }
-            setTickets(newTickets);
-        }
-        
+        setTickets(newTickets);
         if(isLoading) setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user, tickets]);
+  }, [user, isLoading]);
 
   const openTickets = tickets.filter(t => t.status === 'Aberto').length;
   const inProgressTickets = tickets.filter(t => t.status === 'Em Andamento').length;

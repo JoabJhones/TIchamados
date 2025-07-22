@@ -12,54 +12,25 @@ import { Activity, AlertTriangle, CheckCircle, Clock, Loader2 } from "lucide-rea
 import { TicketCharts } from "@/components/management/ticket-charts";
 import { RecentTickets } from "@/components/dashboard/recent-tickets";
 import { useAuth } from "@/contexts/auth-context";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import type { Ticket } from "@/lib/types";
 
-interface ManagementPageProps {
-  playNewTicketSfx?: () => void;
-  playNewMessageSfx?: () => void;
-}
-
-export default function ManagementPage({ playNewTicketSfx, playNewMessageSfx }: ManagementPageProps) {
+export default function ManagementPage() {
     const { user } = useAuth();
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const initialLoadRef = useRef(true);
 
     useEffect(() => {
-        if (user?.role !== 'admin') return;
+        if (!user) return;
 
         setIsLoading(true);
         const unsubscribe = listenToTickets(user.id, user.role, (newTickets) => {
-
-            if (initialLoadRef.current) {
-                setTickets(newTickets);
-                initialLoadRef.current = false;
-            } else {
-                const oldTicketIds = tickets.map(t => t.id);
-                const isNewTicket = newTickets.some(nt => !oldTicketIds.includes(nt.id));
-
-                if (isNewTicket) {
-                    playNewTicketSfx?.();
-                } else {
-                     for (const newTicket of newTickets) {
-                        const oldTicket = tickets.find(t => t.id === newTicket.id);
-                        if (oldTicket && newTicket.interactions.length > oldTicket.interactions.length) {
-                             const lastInteraction = newTicket.interactions[newTicket.interactions.length - 1];
-                             if (lastInteraction.author.role !== 'admin') {
-                                playNewMessageSfx?.();
-                                break;
-                             }
-                        }
-                    }
-                }
-                setTickets(newTickets);
-            }
-             if(isLoading) setIsLoading(false);
+            setTickets(newTickets);
+            if(isLoading) setIsLoading(false);
         });
 
         return () => unsubscribe();
-    }, [user, tickets]);
+    }, [user, isLoading]);
 
     const openTickets = tickets.filter(t => t.status === 'Aberto').length;
     const inProgressTickets = tickets.filter(t => t.status === 'Em Andamento').length;

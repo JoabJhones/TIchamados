@@ -139,9 +139,6 @@ function AppFooter() {
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const pathname = usePathname();
-  const newTicketSfxRef = React.useRef<HTMLAudioElement>(null);
-  const newMessageSfxRef = React.useRef<HTMLAudioElement>(null);
-
 
   const isAuthPage = pathname === '/login' || pathname === '/register';
 
@@ -191,20 +188,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </Sidebar>
         <SidebarInset className="flex flex-col bg-background">
             <div className="flex-grow">
-              {React.Children.map(children, child => {
-                  if (React.isValidElement(child)) {
-                      return React.cloneElement(child, { 
-                          playNewTicketSfx: () => newTicketSfxRef.current?.play(),
-                          playNewMessageSfx: () => newMessageSfxRef.current?.play(),
-                       } as any);
-                  }
-                  return child;
-              })}
+              {children}
             </div>
             <AppFooter />
         </SidebarInset>
-        <audio ref={newTicketSfxRef} src="/sounds/new-ticket.mp3" preload="auto"></audio>
-        <audio ref={newMessageSfxRef} src="/sounds/new-message.mp3" preload="auto"></audio>
       </div>
     </SidebarProvider>
   );
