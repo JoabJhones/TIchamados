@@ -1,3 +1,4 @@
+
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 
@@ -10,60 +11,9 @@ module.exports = {
     {
       name: '@electron-forge/maker-squirrel',
       config: {},
-    },
-    {
-      name: '@electron-forge/maker-zip',
-      platforms: ['darwin'],
-    },
-    {
-      name: '@electron-forge/maker-deb',
-      config: {},
-    },
-    {
-      name: '@electron-forge/maker-rpm',
-      config: {},
-    },
+    }
   ],
   plugins: [
-    {
-      name: '@electron-forge/plugin-webpack',
-      config: {
-        mainConfig: {
-          entry: './electron.js',
-        },
-        renderer: {
-          config: {
-            module: {
-              rules: [
-                {
-                  test: /\.tsx?$/,
-                  exclude: /node_modules/,
-                  use: {
-                    loader: 'ts-loader',
-                    options: {
-                      transpileOnly: true,
-                    },
-                  },
-                },
-              ],
-            },
-            resolve: {
-              extensions: ['.js', '.ts', '.jsx', '.tsx', '.css'],
-            },
-          },
-          entryPoints: [
-            {
-              html: './out/index.html',
-              js: './renderer.js',
-              name: 'main_window',
-              preload: {
-                js: './preload.js',
-              },
-            },
-          ],
-        },
-      },
-    },
     // Fuses are used to enable/disable various Electron functionality
     // at package time, before code signing the application
     new FusesPlugin({
