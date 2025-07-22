@@ -1,7 +1,7 @@
 
 'use client';
 
-import { getTicketById, getTechnicians, addInteractionToTicket, updateTicketStatus, updateTicketPriority, assignTicketToTechnician, deleteTicket } from "@/lib/mock-data";
+import { listenToTicketById, getTechnicians, addInteractionToTicket, updateTicketStatus, updateTicketPriority, assignTicketToTechnician, deleteTicket, updateTypingStatus } from "@/lib/mock-data";
 import { notFound, useParams, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,12 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Activity, ArrowLeft, AtSign, Building, Phone, Send, Tag, User, Wand2, MessageSquare, Shield, Loader2, Trash2 } from "lucide-react";
+import { Activity, ArrowLeft, AtSign, Building, Phone, Send, Tag, User, Wand2, MessageSquare, Shield, Loader2, Trash2, Keyboard } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAuth } from "@/contexts/auth-context";
 import { TICKET_PRIORITIES, TICKET_STATUSES } from "@/lib/constants";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Ticket, Technician, TicketStatus, TicketPriority } from "@/lib/types";
@@ -59,38 +59,58 @@ export default function TicketDetailsPage() {
     const [newComment, setNewComment] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    const fetchTicketDetails = useCallback(async () => {
+    const handleTyping = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        setNewComment(e.target.value);
+        if (!user || !ticket) return;
+
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+        } else {
+            // Started typing
+            updateTypingStatus(ticket.id, user.role, true);
+        }
+
+        typingTimeoutRef.current = setTimeout(() => {
+            // Stopped typing
+            updateTypingStatus(ticket.id, user.role, false);
+            typingTimeoutRef.current = null;
+        }, 2000); // 2-second timeout
+    };
+
+
+    useEffect(() => {
+        if (!ticketId) return;
+
         setIsLoading(true);
-        try {
-            const fetchedTicket = await getTicketById(ticketId);
-            if (fetchedTicket) {
-                setTicket(fetchedTicket);
+        const unsubscribe = listenToTicketById(ticketId, (updatedTicket) => {
+            if (updatedTicket) {
+                setTicket(updatedTicket);
             } else {
                 notFound();
             }
+            if (isLoading) setIsLoading(false);
+        });
 
-            if (user?.role === 'admin') {
-                const fetchedTechnicians = await getTechnicians();
-                setTechnicians(fetchedTechnicians);
-            }
-        } catch (error) {
-            toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar os detalhes do chamado."});
-            notFound();
-        } finally {
-            setIsLoading(false);
+        // Fetch technicians if admin
+        if (user?.role === 'admin') {
+            getTechnicians().then(setTechnicians);
         }
-    }, [ticketId, user?.role, toast]);
 
-    useEffect(() => {
-        fetchTicketDetails();
-    }, [fetchTicketDetails]);
+        return () => {
+             if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+             if (user && ticket) updateTypingStatus(ticketId, user.role, false);
+             unsubscribe();
+        }
+    }, [ticketId, user?.role]);
+
 
     const handleUpdateTicket = async (updateFn: () => Promise<Ticket | null>, successMessage: string, errorMessage: string) => {
         try {
             const updatedTicket = await updateFn();
             if (updatedTicket) {
-                setTicket(updatedTicket);
                 toast({ title: "Sucesso!", description: successMessage });
             } else {
                 throw new Error();
@@ -153,11 +173,9 @@ export default function TicketDetailsPage() {
     }
 
     if (!ticket) {
-        // This case is handled by notFound(), but it's good for type safety
         return null;
     }
     
-    // Authorization: only admin or the ticket requester can see the ticket
     if (user?.role !== 'admin' && user?.id !== ticket.requester.id) {
         return (
              <div className="flex-1 space-y-4 p-8 pt-6">
@@ -168,27 +186,23 @@ export default function TicketDetailsPage() {
     }
 
     const isAdmin = user?.role === 'admin';
+    const isTyping = isAdmin ? ticket.userIsTyping : ticket.technicianIsTyping;
+    const typingUser = isAdmin ? ticket.requester.name : (ticket.assignedTo?.name || "Técnico");
+
 
     const handleAddInteraction = async (isInternal: boolean) => {
         if (!newComment.trim() || !user) return;
         setIsSubmitting(true);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        await updateTypingStatus(ticket.id, user.role, false);
         
         try {
-            const updatedTicket = await addInteractionToTicket(ticket.id, user, newComment, isInternal);
-            if (updatedTicket) {
-                setTicket(updatedTicket); // Update state to re-render
-                setNewComment("");
-                toast({
-                    title: "Sucesso!",
-                    description: `Sua mensagem foi ${isInternal ? 'adicionada como um comentário interno' : 'enviada para o usuário'}.`,
-                });
-            } else {
-                 toast({
-                    variant: 'destructive',
-                    title: "Erro",
-                    description: "Não foi possível adicionar o comentário.",
-                });
-            }
+            await addInteractionToTicket(ticket.id, user, newComment, isInternal);
+            setNewComment("");
+            toast({
+                title: "Sucesso!",
+                description: `Sua mensagem foi ${isInternal ? 'adicionada como um comentário interno' : 'enviada'}.`,
+            });
         } catch (error) {
              toast({
                 variant: 'destructive',
@@ -249,6 +263,13 @@ export default function TicketDetailsPage() {
                                         </div>
                                    </div>
                                ))}
+                                
+                                {isTyping && (
+                                     <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
+                                         <Keyboard className="h-4 w-4" />
+                                         <span>{typingUser} está digitando...</span>
+                                     </div>
+                                 )}
 
                                 {(isAdmin || ticket.status !== 'Concluído') && (
                                    <>
@@ -258,7 +279,7 @@ export default function TicketDetailsPage() {
                                             placeholder={isAdmin ? "Adicionar comentário interno ou responder ao usuário..." : "Adicionar um comentário..."} 
                                             className="mb-2" 
                                             value={newComment}
-                                            onChange={(e) => setNewComment(e.target.value)}
+                                            onChange={handleTyping}
                                             disabled={isSubmitting}
                                         />
                                         <div className="flex justify-end items-center gap-2">

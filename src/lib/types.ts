@@ -41,6 +41,8 @@ export interface Ticket {
   createdAt: Date;
   updatedAt: Date;
   interactions: TicketInteraction[];
+  userIsTyping?: boolean;
+  technicianIsTyping?: boolean;
 }
 
 export interface KnowledgeArticle {

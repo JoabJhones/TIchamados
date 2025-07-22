@@ -1,6 +1,6 @@
 
 import type { Ticket, User, Technician, KnowledgeArticle, TicketPriority, TicketCategory, TicketInteraction, TicketStatus } from './types';
-import { collection, addDoc, getDocs, doc, getDoc, query, where, writeBatch, orderBy, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, getDoc, query, where, writeBatch, orderBy, updateDoc, deleteDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { db } from './firebase';
 
 const articles: KnowledgeArticle[] = [
@@ -43,8 +43,6 @@ export const getTickets = async (userId?: string, userRole?: string): Promise<Ti
     if (userRole === 'admin') {
         q = query(ticketsCollection, orderBy('createdAt', 'desc'));
     } else if (userId) {
-        // The query that was failing due to a missing composite index.
-        // We will fetch and then sort in the client.
         q = query(ticketsCollection, where('requester.id', '==', userId));
     } else {
         return [];
@@ -53,7 +51,6 @@ export const getTickets = async (userId?: string, userRole?: string): Promise<Ti
     const querySnapshot = await getDocs(q);
     const tickets = querySnapshot.docs.map(processTicketDoc).filter((t): t is Ticket => t !== null);
     
-    // Sort tickets by creation date descending
     tickets.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     return tickets;
@@ -67,7 +64,9 @@ export const addTicket = async (ticketData: Omit<Ticket, 'id' | 'status' | 'crea
         updatedAt: new Date(),
         interactions: [
              { id: `int-${Date.now()}`, author: ticketData.requester, content: 'Chamado criado.', createdAt: new Date(), isInternal: false }
-        ]
+        ],
+        userIsTyping: false,
+        technicianIsTyping: false,
     };
     const docRef = await addDoc(collection(db, "tickets"), newTicketData);
     return { id: docRef.id, ...newTicketData };
@@ -82,7 +81,7 @@ export const addInteractionToTicket = async (ticketId: string, author: User, con
         
         const newInteraction: TicketInteraction = {
             id: `int-${Date.now()}`,
-            author: { // Storing a minimal author object
+            author: {
                 id: author.id,
                 name: author.name,
                 email: author.email,
@@ -101,7 +100,7 @@ export const addInteractionToTicket = async (ticketId: string, author: User, con
         if (!isInternal && ticketData.status !== 'Concluído' && ticketData.status !== 'Cancelado') {
              if(author.role === 'admin') {
                 newStatus = 'Aguardando Usuário';
-             } else { // User or Technician without admin role
+             } else {
                 newStatus = 'Em Andamento';
              }
         }
@@ -124,6 +123,20 @@ export const getTicketById = async (id: string): Promise<Ticket | null> => {
     const ticketSnap = await getDoc(ticketRef);
     return ticketSnap.exists() ? processTicketDoc(ticketSnap) : null;
 }
+
+export const listenToTicketById = (id: string, callback: (ticket: Ticket | null) => void): Unsubscribe => {
+    const ticketRef = doc(db, 'tickets', id);
+    return onSnapshot(ticketRef, (doc) => {
+        callback(processTicketDoc(doc));
+    });
+};
+
+export const updateTypingStatus = async (ticketId: string, userRole: 'admin' | 'user', isTyping: boolean) => {
+    const ticketRef = doc(db, 'tickets', ticketId);
+    const updateData = userRole === 'admin' ? { technicianIsTyping: isTyping } : { userIsTyping: isTyping };
+    await updateDoc(ticketRef, updateData);
+};
+
 
 export const getTechnicians = async (): Promise<Technician[]> => {
     const techniciansCollection = collection(db, 'technicians');
@@ -174,5 +187,3 @@ export const deleteTicket = async (ticketId: string): Promise<void> => {
 export const getKnowledgeArticles = () => articles;
 export const TICKET_CATEGORIES: readonly string[] = ['Rede', 'Software', 'Hardware', 'Acesso', 'Outros'];
 export const TICKET_PRIORITIES: readonly string[] = ['Baixa', 'Média', 'Alta', 'Crítica'];
-
-    
