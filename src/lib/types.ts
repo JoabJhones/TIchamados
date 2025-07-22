@@ -7,6 +7,9 @@ export interface User {
   name: string;
   email: string;
   avatarUrl: string;
+  role: 'admin' | 'user';
+  department?: string;
+  contact?: string;
 }
 
 export interface Technician {
@@ -14,7 +17,7 @@ export interface Technician {
   name: string;
   email: string;
   avatarUrl: string;
-  skills: TicketCategory[];
+  skills: (TicketCategory | 'Outros')[];
   workload: number;
 }
 

@@ -1,3 +1,4 @@
+'use client';
 import { Activity, CircleCheck, Clock } from 'lucide-react';
 import {
   Card,
@@ -7,9 +8,11 @@ import {
 } from '@/components/ui/card';
 import { RecentTickets } from '@/components/dashboard/recent-tickets';
 import { getTickets } from '@/lib/mock-data';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function DashboardPage() {
-  const tickets = getTickets();
+  const { user } = useAuth();
+  const tickets = getTickets(user?.id, user?.role);
   const openTickets = tickets.filter(t => t.status === 'Aberto').length;
   const inProgressTickets = tickets.filter(t => t.status === 'Em Andamento').length;
   const completedTickets = tickets.filter(t => t.status === 'Concluído').length;

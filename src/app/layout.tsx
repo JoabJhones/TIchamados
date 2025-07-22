@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { AppLayout } from '@/components/app-layout';
 import { Toaster } from '@/components/ui/toaster';
 import './globals.css';
+import { AuthProvider } from '@/contexts/auth-context';
 
 export const metadata: Metadata = {
   title: 'EloTech - Gestão Inteligente de Chamados',
@@ -24,8 +25,10 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <AppLayout>{children}</AppLayout>
-        <Toaster />
+        <AuthProvider>
+            <AppLayout>{children}</AppLayout>
+            <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );

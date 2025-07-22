@@ -1,4 +1,4 @@
-
+'use client';
 import {
   Card,
   CardContent,
@@ -10,9 +10,11 @@ import { getTickets } from "@/lib/mock-data";
 import { Activity, AlertTriangle, CheckCircle, Clock } from "lucide-react";
 import { TicketCharts } from "@/components/management/ticket-charts";
 import { RecentTickets } from "@/components/dashboard/recent-tickets";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function ManagementPage() {
-    const tickets = getTickets();
+    const { user } = useAuth();
+    const tickets = getTickets(user?.id, user?.role);
     const openTickets = tickets.filter(t => t.status === 'Aberto').length;
     const inProgressTickets = tickets.filter(t => t.status === 'Em Andamento').length;
     const criticalTickets = tickets.filter(t => t.priority === 'Crítica').length;

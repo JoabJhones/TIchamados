@@ -1,9 +1,10 @@
 import type { Ticket, User, Technician, KnowledgeArticle } from './types';
 
 const users: User[] = [
-  { id: 'user-1', name: 'Ana Silva', email: 'ana.silva@example.com', avatarUrl: 'https://placehold.co/100x100' },
-  { id: 'user-2', name: 'Bruno Costa', email: 'bruno.costa@example.com', avatarUrl: 'https://placehold.co/100x100' },
-  { id: 'user-3', name: 'Carla Dias', email: 'carla.dias@example.com', avatarUrl: 'https://placehold.co/100x100' },
+  { id: 'user-1', name: 'Ana Silva', email: 'ana.silva@example.com', avatarUrl: 'https://placehold.co/100x100', role: 'user', department: 'Vendas', contact: '1111' },
+  { id: 'user-2', name: 'Bruno Costa', email: 'bruno.costa@example.com', avatarUrl: 'https://placehold.co/100x100', role: 'user', department: 'Financeiro', contact: '2222' },
+  { id: 'user-3', name: 'Carla Dias', email: 'carla.dias@example.com', avatarUrl: 'https://placehold.co/100x100', role: 'user', department: 'Marketing', contact: '3333' },
+  { id: 'admin-1', name: 'Admin', email: 'admin@elotech.com', avatarUrl: 'https://placehold.co/100x100', role: 'admin' },
 ];
 
 const technicians: Technician[] = [
@@ -93,10 +94,18 @@ const articles: KnowledgeArticle[] = [
     },
 ];
 
-export const getTickets = () => tickets;
+export const getTickets = (userId?: string, userRole?: string) => {
+    if (userRole === 'admin') {
+        return tickets;
+    }
+    if (userId) {
+        return tickets.filter(t => t.requester.id === userId);
+    }
+    return [];
+};
 export const getTicketById = (id: string) => tickets.find(t => t.id === id);
 export const getUsers = () => users;
 export const getTechnicians = () => technicians;
 export const getKnowledgeArticles = () => articles;
-export const TICKET_CATEGORIES: string[] = ['Rede', 'Software', 'Hardware', 'Acesso', 'Outros'];
-export const TICKET_PRIORITIES: string[] = ['Baixa', 'Média', 'Alta', 'Crítica'];
+export const TICKET_CATEGORIES: readonly string[] = ['Rede', 'Software', 'Hardware', 'Acesso', 'Outros'];
+export const TICKET_PRIORITIES: readonly string[] = ['Baixa', 'Média', 'Alta', 'Crítica'];
