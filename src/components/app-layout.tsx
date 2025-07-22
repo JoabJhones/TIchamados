@@ -52,19 +52,17 @@ function MainNav() {
   return (
     <SidebarMenu>
       {filteredNavItems.map((item) => (
-         <Link href={item.href} key={item.href} legacyBehavior passHref>
-             <SidebarMenuItem>
+        <SidebarMenuItem key={item.href}>
+            <Link href={item.href}>
                 <SidebarMenuButton
-                as="a"
-                href={item.href}
                 isActive={pathname === item.href}
                 tooltip={item.label}
                 >
                 <item.icon />
                 <span>{item.label}</span>
                 </SidebarMenuButton>
-            </SidebarMenuItem>
-         </Link>
+            </Link>
+        </SidebarMenuItem>
       ))}
     </SidebarMenu>
   );
