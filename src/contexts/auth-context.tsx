@@ -26,21 +26,17 @@ const fetchUserData = async (firebaseUser: FirebaseUser): Promise<User | null> =
     if (userDoc.exists()) {
         return { id: firebaseUser.uid, ...userDoc.data() } as User;
     }
+    // If user exists in Auth but not in Firestore, create the Firestore document.
+    // This is crucial for the admin user.
     if (firebaseUser.email?.startsWith('admin')) {
-        const adminUser: User = {
-            id: firebaseUser.uid,
+        const adminUser: Omit<User, 'id'> = {
             email: firebaseUser.email!,
             name: 'Admin',
             role: 'admin',
             avatarUrl: `https://placehold.co/100x100.png`
         };
-        await setDoc(doc(db, "users", firebaseUser.uid), {
-           name: adminUser.name,
-           email: adminUser.email,
-           role: 'admin',
-           avatarUrl: adminUser.avatarUrl,
-        });
-        return adminUser;
+        await setDoc(doc(db, "users", firebaseUser.uid), adminUser);
+        return { id: firebaseUser.uid, ...adminUser };
     }
     return null;
 }
@@ -80,13 +76,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (credentials: { email: string; pass: string }): Promise<User | null> => {
     const auth = getAuth(app);
-    const userCredential = await signInWithEmailAndPassword(auth, credentials.email, credentials.pass);
-    if (userCredential.user) {
+    // First, try to sign in
+    try {
+        const userCredential = await signInWithEmailAndPassword(auth, credentials.email, credentials.pass);
         const userData = await fetchUserData(userCredential.user);
         setUser(userData);
         return userData;
+    } catch (error: any) {
+        // If user is not found, and it's an admin, try to create it.
+        if (error.code === 'auth/user-not-found' && credentials.email.startsWith('admin')) {
+            const newUserCredential = await createUserWithEmailAndPassword(auth, credentials.email, credentials.pass);
+            const newAdminUser = await fetchUserData(newUserCredential.user); // fetchUserData will create the firestore doc
+            setUser(newAdminUser);
+            return newAdminUser;
+        }
+        // For any other error, re-throw it to be handled by the form.
+        throw error;
     }
-    return null;
   };
 
   const register = async (userInfo: Omit<User, 'id' | 'role' | 'avatarUrl'> & {password: string}): Promise<User | null> => {
@@ -100,12 +106,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const newUser: Omit<User, 'id'> = {
             email: email,
             role: 'user',
-            avatarUrl: 'https://placehold.co/100x100.png',
+            avatarUrl: `https://placehold.co/100x100.png?text=${rest.name[0]}`,
             ...rest
         };
         await setDoc(doc(db, "users", firebaseUser.uid), newUser);
-        setUser({ id: firebaseUser.uid, ...newUser });
-        return { id: firebaseUser.uid, ...newUser };
+        const fullUser = { id: firebaseUser.uid, ...newUser };
+        setUser(fullUser);
+        return fullUser;
     }
     
     return null;

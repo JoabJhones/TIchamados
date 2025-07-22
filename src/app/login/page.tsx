@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -33,6 +34,7 @@ export default function LoginPage() {
       }
     } catch (error: any) {
        let description = 'Ocorreu um erro ao tentar fazer login. Tente novamente mais tarde.';
+       // Firebase auth error codes
        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
            description = 'E-mail ou senha incorretos. Por favor, verifique suas credenciais.';
        } else if (error.code === 'auth/too-many-requests') {
