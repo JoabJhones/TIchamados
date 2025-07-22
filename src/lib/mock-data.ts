@@ -1,4 +1,5 @@
-import type { Ticket, User, Technician, KnowledgeArticle } from './types';
+
+import type { Ticket, User, Technician, KnowledgeArticle, TicketPriority, TicketCategory } from './types';
 
 const users: User[] = [
   { id: 'user-1', name: 'Ana Silva', email: 'ana.silva@example.com', avatarUrl: 'https://placehold.co/100x100', role: 'user', department: 'Vendas', contact: '1111' },
@@ -96,13 +97,26 @@ const articles: KnowledgeArticle[] = [
 
 export const getTickets = (userId?: string, userRole?: string) => {
     if (userRole === 'admin') {
-        return tickets;
+        return [...tickets].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     }
     if (userId) {
-        return tickets.filter(t => t.requester.id === userId);
+        return tickets.filter(t => t.requester.id === userId).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     }
     return [];
 };
+
+export const addTicket = (ticketData: Omit<Ticket, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'requester'> & {requester: User}) => {
+    const newTicket: Ticket = {
+        id: `TKT-${String(Date.now()).slice(-5)}`,
+        ...ticketData,
+        status: 'Aberto',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+    };
+    tickets.unshift(newTicket);
+    return newTicket;
+}
+
 export const getTicketById = (id: string) => tickets.find(t => t.id === id);
 export const getUsers = () => users;
 export const getTechnicians = () => technicians;

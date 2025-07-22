@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,8 +27,10 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { TICKET_CATEGORIES, TICKET_PRIORITIES } from '@/lib/mock-data';
+import { TICKET_CATEGORIES, TICKET_PRIORITIES, addTicket } from '@/lib/mock-data';
 import { getAiSuggestions } from '@/lib/actions';
+import { useAuth } from '@/contexts/auth-context';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   title: z.string().min(5, {
@@ -46,6 +49,9 @@ const formSchema = z.object({
 
 export function CreateTicketForm() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isSuggesting, setIsSuggesting] = React.useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -92,12 +98,33 @@ export function CreateTicketForm() {
   };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: 'Chamado Criado!',
-      description: 'Seu chamado foi enviado para a nossa equipe de suporte.',
-    });
-    form.reset();
+    if (!user) {
+        toast({ variant: 'destructive', title: 'Erro de autenticação', description: 'Você precisa estar logado para criar um chamado.' });
+        return;
+    }
+    
+    setIsSubmitting(true);
+    
+    const newTicket = {
+      id: `TKT-${String(Date.now()).slice(-5)}`,
+      status: 'Aberto' as const,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      requester: user,
+      ...values,
+    };
+    
+    // Simulate API call
+    setTimeout(() => {
+        addTicket(newTicket);
+        toast({
+            title: 'Chamado Criado!',
+            description: 'Seu chamado foi enviado para a nossa equipe de suporte.',
+        });
+        form.reset();
+        router.push('/');
+        setIsSubmitting(false);
+    }, 1000);
   }
 
   return (
@@ -142,7 +169,7 @@ export function CreateTicketForm() {
         <div className="space-y-4 rounded-lg border bg-card-foreground/5 p-4">
             <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold font-headline">Classificação</h3>
-                <Button type="button" variant="outline" size="sm" onClick={handleSuggestion} disabled={isSuggesting}>
+                <Button type="button" variant="outline" size="sm" onClick={handleSuggestion} disabled={isSuggesting || isSubmitting}>
                     {isSuggesting ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
@@ -202,7 +229,10 @@ export function CreateTicketForm() {
                 />
             </div>
         </div>
-        <Button type="submit" className="bg-accent hover:bg-accent/90">Enviar Chamado</Button>
+        <Button type="submit" className="bg-accent hover:bg-accent/90" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSubmitting ? 'Enviando...' : 'Enviar Chamado'}
+        </Button>
       </form>
     </Form>
   );
