@@ -38,14 +38,18 @@ export default function ManagementPage({ playNewTicketSfx, playNewMessageSfx }: 
             } else {
                 const oldTicketIds = tickets.map(t => t.id);
                 const isNewTicket = newTickets.some(nt => !oldTicketIds.includes(nt.id));
+
                 if (isNewTicket) {
                     playNewTicketSfx?.();
                 } else {
                      for (const newTicket of newTickets) {
                         const oldTicket = tickets.find(t => t.id === newTicket.id);
                         if (oldTicket && newTicket.interactions.length > oldTicket.interactions.length) {
-                             playNewMessageSfx?.();
-                             break;
+                             const lastInteraction = newTicket.interactions[newTicket.interactions.length - 1];
+                             if (lastInteraction.author.role !== 'admin') {
+                                playNewMessageSfx?.();
+                                break;
+                             }
                         }
                     }
                 }

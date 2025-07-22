@@ -35,20 +35,21 @@ export default function DashboardPage({ playNewTicketSfx, playNewMessageSfx }: D
             setTickets(newTickets);
             initialLoadRef.current = false;
         } else {
-             if (user.role === 'admin') {
-                const oldTicketIds = tickets.map(t => t.id);
-                // Check for new tickets
-                const isNewTicket = newTickets.some(nt => !oldTicketIds.includes(nt.id));
-                if (isNewTicket) {
-                    playNewTicketSfx?.();
-                } else {
-                    // Check for new messages
-                    for (const newTicket of newTickets) {
-                        const oldTicket = tickets.find(t => t.id === newTicket.id);
-                        if (oldTicket && newTicket.interactions.length > oldTicket.interactions.length) {
-                             playNewMessageSfx?.();
-                             break;
-                        }
+            const oldTicketIds = tickets.map(t => t.id);
+            const isNewTicket = newTickets.some(nt => !oldTicketIds.includes(nt.id));
+
+            if (user.role === 'admin' && isNewTicket) {
+                 playNewTicketSfx?.();
+            } else {
+                 for (const newTicket of newTickets) {
+                    const oldTicket = tickets.find(t => t.id === newTicket.id);
+                    if (oldTicket && newTicket.interactions.length > oldTicket.interactions.length) {
+                         const lastInteraction = newTicket.interactions[newTicket.interactions.length - 1];
+                         // Play sound if the user is an admin and the author is not, or vice-versa
+                         if ((user.role === 'admin' && lastInteraction.author.role !== 'admin') || (user.role !== 'admin' && lastInteraction.author.role === 'admin')) {
+                            playNewMessageSfx?.();
+                            break;
+                         }
                     }
                 }
             }
