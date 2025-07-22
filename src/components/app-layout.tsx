@@ -52,8 +52,8 @@ function MainNav() {
   return (
     <SidebarMenu>
       {filteredNavItems.map((item) => (
-        <SidebarMenuItem key={item.href}>
-          <Link href={item.href} passHref>
+        <Link href={item.href} key={item.href} passHref>
+          <SidebarMenuItem>
             <SidebarMenuButton
               isActive={pathname === item.href}
               tooltip={item.label}
@@ -61,8 +61,8 @@ function MainNav() {
               <item.icon />
               <span>{item.label}</span>
             </SidebarMenuButton>
-          </Link>
-        </SidebarMenuItem>
+          </SidebarMenuItem>
+        </Link>
       ))}
     </SidebarMenu>
   );
@@ -114,7 +114,7 @@ function UserMenu() {
 
 function AppFooter() {
     return (
-        <footer className="mt-auto border-t bg-background px-6 py-4">
+        <footer className="border-t bg-background px-6 py-4">
             <div className="text-center text-sm text-muted-foreground">
                 <p>
                     Desenvolvido com ❤️ por{' '}
@@ -149,7 +149,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (isAuthPage) {
-    return <>{children}</>;
+    return (
+        <div className="flex flex-col min-h-screen bg-background">
+            <main className="flex-grow">{children}</main>
+            <AppFooter />
+        </div>
+    );
   }
   
   return (

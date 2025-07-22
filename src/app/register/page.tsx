@@ -45,7 +45,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950">
+    <div className="flex flex-1 items-center justify-center bg-gray-100 dark:bg-gray-950 p-4">
       <Card className="mx-auto max-w-sm w-full">
          <CardHeader className="space-y-2 text-center">
             <div className="flex justify-center">
