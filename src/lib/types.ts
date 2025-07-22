@@ -23,7 +23,7 @@ export interface Technician {
 
 export interface TicketInteraction {
     id: string;
-    author: User | Technician;
+    author: Partial<User> | Partial<Technician>;
     content: string;
     createdAt: Date;
     isInternal: boolean;

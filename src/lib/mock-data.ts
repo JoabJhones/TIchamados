@@ -37,11 +37,31 @@ const processTicketDoc = (doc: any) => {
     } as Ticket;
 };
 
+export const listenToTickets = (userId: string, userRole: 'admin' | 'user', callback: (tickets: Ticket[]) => void): Unsubscribe => {
+    const ticketsCollection = collection(db, 'tickets');
+    let q;
+
+    if (userRole === 'admin') {
+        q = query(ticketsCollection, orderBy('createdAt', 'desc'));
+    } else {
+        q = query(ticketsCollection, where('requester.id', '==', userId), orderBy('createdAt', 'desc'));
+    }
+
+    return onSnapshot(q, (querySnapshot) => {
+        const tickets = querySnapshot.docs.map(processTicketDoc).filter((t): t is Ticket => t !== null);
+        callback(tickets);
+    }, (error) => {
+        console.error("Error listening to tickets:", error);
+        // Handle error appropriately
+    });
+};
+
+
 export const getTickets = async (userId?: string, userRole?: string): Promise<Ticket[]> => {
     const ticketsCollection = collection(db, 'tickets');
     let q;
     if (userRole === 'admin') {
-        q = query(ticketsCollection, orderBy('createdAt', 'desc'));
+        q = query(ticketsCollection);
     } else if (userId) {
         q = query(ticketsCollection, where('requester.id', '==', userId));
     } else {
@@ -51,6 +71,7 @@ export const getTickets = async (userId?: string, userRole?: string): Promise<Ti
     const querySnapshot = await getDocs(q);
     const tickets = querySnapshot.docs.map(processTicketDoc).filter((t): t is Ticket => t !== null);
     
+    // Sort locally because Firestore requires an index for this query
     tickets.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     return tickets;
@@ -100,7 +121,7 @@ export const addInteractionToTicket = async (ticketId: string, author: User, con
         if (!isInternal && ticketData.status !== 'Concluído' && ticketData.status !== 'Cancelado') {
              if(author.role === 'admin') {
                 newStatus = 'Aguardando Usuário';
-             } else {
+             } else if (ticketData.status === 'Aguardando Usuário') {
                 newStatus = 'Em Andamento';
              }
         }

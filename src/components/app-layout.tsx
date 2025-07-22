@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Logo } from './logo';
 import { useAuth } from '@/contexts/auth-context';
+import React from 'react';
 
 const navItems = [
   { href: '/', label: 'Painel', icon: Home, admin: false },
@@ -47,7 +48,13 @@ function MainNav() {
   const pathname = usePathname();
   const { user } = useAuth();
 
-  const filteredNavItems = navItems.filter(item => !item.admin || user?.role === 'admin');
+  const filteredNavItems = navItems.filter(item => {
+      if (item.admin) {
+          return user?.role === 'admin';
+      }
+      return true;
+  });
+
 
   return (
     <SidebarMenu>
@@ -93,7 +100,7 @@ function UserMenu() {
       <DropdownMenuContent side="right" align="start" className="w-56">
         <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => router.push('/settings')}>
+        <DropdownMenuItem onClick={() => router.push('/settings')} disabled={user.role !== 'admin'}>
           <Settings className="mr-2 h-4 w-4" />
           <span>Configurações</span>
         </DropdownMenuItem>
@@ -132,6 +139,9 @@ function AppFooter() {
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const pathname = usePathname();
+  const newTicketSfxRef = React.useRef<HTMLAudioElement>(null);
+  const newMessageSfxRef = React.useRef<HTMLAudioElement>(null);
+
 
   const isAuthPage = pathname === '/login' || pathname === '/register';
 
@@ -180,9 +190,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </SidebarFooter>
         </Sidebar>
         <SidebarInset className="flex flex-col bg-background">
-            <div className="flex-grow">{children}</div>
+            <div className="flex-grow">
+              {React.Children.map(children, child => {
+                  if (React.isValidElement(child)) {
+                      return React.cloneElement(child, { 
+                          playNewTicketSfx: () => newTicketSfxRef.current?.play(),
+                          playNewMessageSfx: () => newMessageSfxRef.current?.play(),
+                       } as any);
+                  }
+                  return child;
+              })}
+            </div>
             <AppFooter />
         </SidebarInset>
+        <audio ref={newTicketSfxRef} src="/sounds/new-ticket.mp3" preload="auto"></audio>
+        <audio ref={newMessageSfxRef} src="/sounds/new-message.mp3" preload="auto"></audio>
       </div>
     </SidebarProvider>
   );
