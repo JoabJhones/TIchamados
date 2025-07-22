@@ -18,7 +18,7 @@ import { TICKET_PRIORITIES, TICKET_STATUSES } from "@/lib/constants";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { Ticket, Technician, TicketStatus, TicketPriority } from "@/lib/types";
+import type { Ticket, Technician, TicketStatus, TicketPriority, User as UserType } from "@/lib/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -104,6 +104,7 @@ export default function TicketDetailsPage() {
              if (user && ticket) updateTypingStatus(ticketId, user.role, false);
              unsubscribe();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ticketId, user?.role]);
 
 
@@ -138,17 +139,16 @@ export default function TicketDetailsPage() {
 
     const handleAssignTechnician = (techId: string) => {
         const technician = technicians.find(t => t.id === techId);
-        if (technician) {
-            handleUpdateTicket(
-                () => assignTicketToTechnician(ticket!.id, technician),
-                `Chamado atribuído a ${technician.name}.`,
-                "Não foi possível atribuir o técnico."
-            );
-        }
+        handleUpdateTicket(
+            () => assignTicketToTechnician(ticket!.id, technician || null),
+            techId === 'unassigned' ? `Chamado não atribuído.` : `Chamado atribuído a ${technician!.name}.`,
+            "Não foi possível atribuir o técnico."
+        );
     };
     
     const handleDeleteTicket = async () => {
-        if (ticket?.status !== 'Concluído') {
+        if (!ticket) return;
+        if (ticket.status !== 'Concluído') {
             toast({ variant: "destructive", title: "Ação não permitida", description: "O chamado só pode ser excluído após ser marcado como 'Concluído'." });
             return;
         }
@@ -191,13 +191,18 @@ export default function TicketDetailsPage() {
 
 
     const handleAddInteraction = async (isInternal: boolean) => {
-        if (!newComment.trim() || !user) return;
+        if (!newComment.trim() || !user || !ticket) return;
         setIsSubmitting(true);
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
         await updateTypingStatus(ticket.id, user.role, false);
         
         try {
-            await addInteractionToTicket(ticket.id, user, newComment, isInternal);
+            let author: UserType | Technician = user;
+            if (isAdmin && ticket.assignedTo) {
+                 author = ticket.assignedTo;
+            }
+
+            await addInteractionToTicket(ticket.id, author, newComment, isInternal);
             setNewComment("");
             toast({
                 title: "Sucesso!",
@@ -249,7 +254,7 @@ export default function TicketDetailsPage() {
                                    <div key={interaction.id} className={cn("flex items-start gap-4", interaction.isInternal && "rounded-md border border-dashed border-yellow-500/50 bg-yellow-500/5 p-3")}>
                                         <Avatar className="h-9 w-9 border">
                                             {interaction.author.avatarUrl && <AvatarImage src={interaction.author.avatarUrl} alt={interaction.author.name} />}
-                                            <AvatarFallback>{interaction.author.name[0]}</AvatarFallback>
+                                            <AvatarFallback>{interaction.author.name?.[0]}</AvatarFallback>
                                         </Avatar>
                                         <div className="w-full">
                                             <div className="flex items-center justify-between">
@@ -312,7 +317,7 @@ export default function TicketDetailsPage() {
                                             variant="destructive"
                                             size="icon"
                                             className="h-7 w-7"
-                                            disabled={ticket.status !== 'Concluído'}
+                                            disabled={isDeleting || ticket.status !== 'Concluído'}
                                             title="Excluir chamado"
                                         >
                                             <Trash2 className="h-4 w-4" />
@@ -401,7 +406,7 @@ export default function TicketDetailsPage() {
 
                             <h4 className="font-semibold">Técnico Responsável</h4>
                             {isAdmin ? (
-                                <Select value={ticket.assignedTo?.id} onValueChange={handleAssignTechnician}>
+                                <Select value={ticket.assignedTo?.id || 'unassigned'} onValueChange={handleAssignTechnician}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Atribuir a um técnico..." />
                                     </SelectTrigger>
@@ -435,3 +440,5 @@ export default function TicketDetailsPage() {
         </div>
     );
 }
+
+    

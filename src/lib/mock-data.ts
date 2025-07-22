@@ -65,7 +65,7 @@ export const getTickets = async (userId?: string, userRole?: string): Promise<Ti
     const ticketsCollection = collection(db, 'tickets');
     let q;
     if (userRole === 'admin') {
-        q = query(ticketsCollection);
+        q = query(ticketsCollection, orderBy('createdAt', 'desc'));
     } else if (userId) {
         q = query(ticketsCollection, where('requester.id', '==', userId));
     } else {
@@ -76,7 +76,9 @@ export const getTickets = async (userId?: string, userRole?: string): Promise<Ti
     const tickets = querySnapshot.docs.map(processTicketDoc).filter((t): t is Ticket => t !== null);
     
     // Sort locally because Firestore requires an index for this query
-    tickets.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    if (userRole !== 'admin') {
+        tickets.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    }
 
     return tickets;
 };
@@ -97,7 +99,7 @@ export const addTicket = async (ticketData: Omit<Ticket, 'id' | 'status' | 'crea
     return { id: docRef.id, ...newTicketData };
 }
 
-export const addInteractionToTicket = async (ticketId: string, author: User, content: string, isInternal: boolean): Promise<Ticket | null> => {
+export const addInteractionToTicket = async (ticketId: string, author: User | Technician, content: string, isInternal: boolean): Promise<Ticket | null> => {
     const ticketRef = doc(db, 'tickets', ticketId);
     const ticketSnap = await getDoc(ticketRef);
 
@@ -111,7 +113,7 @@ export const addInteractionToTicket = async (ticketId: string, author: User, con
                 name: author.name,
                 email: author.email,
                 avatarUrl: author.avatarUrl,
-                role: author.role,
+                role: 'role' in author ? author.role : 'admin', // Technician doesn't have a role, default to admin
             },
             content,
             isInternal,
@@ -122,8 +124,10 @@ export const addInteractionToTicket = async (ticketId: string, author: User, con
         const updatedInteractions = [...currentInteractions, newInteraction];
 
         let newStatus = ticketData.status;
+        const authorIsAdmin = !('department' in author); // A simple way to check if author is a technician/admin
+
         if (!isInternal && ticketData.status !== 'Concluído' && ticketData.status !== 'Cancelado') {
-             if(author.role === 'admin') {
+             if(authorIsAdmin) {
                 newStatus = 'Aguardando Usuário';
              } else if (ticketData.status === 'Aguardando Usuário') {
                 newStatus = 'Em Andamento';
@@ -212,3 +216,5 @@ export const deleteTicket = async (ticketId: string): Promise<void> => {
 export const getKnowledgeArticles = () => articles;
 export const TICKET_CATEGORIES: readonly string[] = ['Rede', 'Software', 'Hardware', 'Acesso', 'Outros'];
 export const TICKET_PRIORITIES: readonly string[] = ['Baixa', 'Média', 'Alta', 'Crítica'];
+
+    
