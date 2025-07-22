@@ -43,13 +43,20 @@ export const getTickets = async (userId?: string, userRole?: string): Promise<Ti
     if (userRole === 'admin') {
         q = query(ticketsCollection, orderBy('createdAt', 'desc'));
     } else if (userId) {
-        q = query(ticketsCollection, where('requester.id', '==', userId), orderBy('createdAt', 'desc'));
+        // The query that was failing due to a missing composite index.
+        // We will fetch and then sort in the client.
+        q = query(ticketsCollection, where('requester.id', '==', userId));
     } else {
         return [];
     }
 
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(processTicketDoc).filter((t): t is Ticket => t !== null);
+    const tickets = querySnapshot.docs.map(processTicketDoc).filter((t): t is Ticket => t !== null);
+    
+    // Sort tickets by creation date descending
+    tickets.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    return tickets;
 };
 
 export const addTicket = async (ticketData: Omit<Ticket, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'interactions'> & {requester: User}) => {
@@ -66,13 +73,12 @@ export const addTicket = async (ticketData: Omit<Ticket, 'id' | 'status' | 'crea
     return { id: docRef.id, ...newTicketData };
 }
 
-export const addInteractionToTicket = async (ticketId: string, author: User | Technician, content: string, isInternal: boolean): Promise<Ticket | null> => {
+export const addInteractionToTicket = async (ticketId: string, author: User, content: string, isInternal: boolean): Promise<Ticket | null> => {
     const ticketRef = doc(db, 'tickets', ticketId);
     const ticketSnap = await getDoc(ticketRef);
 
     if (ticketSnap.exists()) {
         const ticketData = ticketSnap.data();
-        const authorRole = 'role' in author ? author.role : 'technician';
         
         const newInteraction: TicketInteraction = {
             id: `int-${Date.now()}`,
@@ -81,7 +87,7 @@ export const addInteractionToTicket = async (ticketId: string, author: User | Te
                 name: author.name,
                 email: author.email,
                 avatarUrl: author.avatarUrl,
-                role: authorRole === 'admin' || authorRole === 'user' ? authorRole : undefined,
+                role: author.role,
             },
             content,
             isInternal,
@@ -93,7 +99,7 @@ export const addInteractionToTicket = async (ticketId: string, author: User | Te
 
         let newStatus = ticketData.status;
         if (!isInternal && ticketData.status !== 'Concluído' && ticketData.status !== 'Cancelado') {
-             if(authorRole === 'admin') {
+             if(author.role === 'admin') {
                 newStatus = 'Aguardando Usuário';
              } else { // User or Technician without admin role
                 newStatus = 'Em Andamento';
@@ -168,3 +174,5 @@ export const deleteTicket = async (ticketId: string): Promise<void> => {
 export const getKnowledgeArticles = () => articles;
 export const TICKET_CATEGORIES: readonly string[] = ['Rede', 'Software', 'Hardware', 'Acesso', 'Outros'];
 export const TICKET_PRIORITIES: readonly string[] = ['Baixa', 'Média', 'Alta', 'Crítica'];
+
+    
