@@ -1,5 +1,5 @@
 
-import type { Ticket, User, Technician, KnowledgeArticle, TicketPriority, TicketCategory } from './types';
+import type { Ticket, User, Technician, KnowledgeArticle, TicketPriority, TicketCategory, TicketInteraction } from './types';
 
 const users: User[] = [
   { id: 'user-1', name: 'Ana Silva', email: 'ana.silva@example.com', avatarUrl: 'https://placehold.co/100x100', role: 'user', department: 'Vendas', contact: '1111' },
@@ -26,6 +26,9 @@ const tickets: Ticket[] = [
     assignedTo: technicians[0],
     createdAt: new Date('2024-07-22T09:00:00Z'),
     updatedAt: new Date('2024-07-22T09:30:00Z'),
+    interactions: [
+      { id: 'int-1', author: users[0], content: 'Chamado criado.', createdAt: new Date('2024-07-22T09:00:00Z'), isInternal: false }
+    ]
   },
   {
     id: 'TKT-002',
@@ -38,6 +41,9 @@ const tickets: Ticket[] = [
     assignedTo: technicians[2],
     createdAt: new Date('2024-07-22T10:15:00Z'),
     updatedAt: new Date('2024-07-22T10:45:00Z'),
+    interactions: [
+      { id: 'int-2', author: users[1], content: 'Chamado criado.', createdAt: new Date('2024-07-22T10:15:00Z'), isInternal: false }
+    ]
   },
   {
     id: 'TKT-003',
@@ -50,6 +56,10 @@ const tickets: Ticket[] = [
     assignedTo: technicians[1],
     createdAt: new Date('2024-07-21T14:00:00Z'),
     updatedAt: new Date('2024-07-21T16:30:00Z'),
+    interactions: [
+      { id: 'int-3', author: users[2], content: 'Chamado criado.', createdAt: new Date('2024-07-21T14:00:00Z'), isInternal: false },
+      { id: 'int-4', author: technicians[1], content: 'Problema resolvido. A conexão com o banco de dados foi restabelecida.', createdAt: new Date('2024-07-21T16:30:00Z'), isInternal: false }
+    ]
   },
   {
     id: 'TKT-004',
@@ -61,6 +71,9 @@ const tickets: Ticket[] = [
     requester: users[0],
     createdAt: new Date('2024-07-23T08:30:00Z'),
     updatedAt: new Date('2024-07-23T08:30:00Z'),
+    interactions: [
+       { id: 'int-5', author: users[0], content: 'Chamado criado.', createdAt: new Date('2024-07-23T08:30:00Z'), isInternal: false }
+    ]
   },
   {
     id: 'TKT-005',
@@ -73,6 +86,9 @@ const tickets: Ticket[] = [
     assignedTo: technicians[2],
     createdAt: new Date('2024-07-23T11:00:00Z'),
     updatedAt: new Date('2024-07-23T11:20:00Z'),
+    interactions: [
+      { id: 'int-6', author: users[1], content: 'Chamado criado.', createdAt: new Date('2024-07-23T11:00:00Z'), isInternal: false }
+    ]
   },
 ];
 
@@ -105,17 +121,41 @@ export const getTickets = (userId?: string, userRole?: string) => {
     return [];
 };
 
-export const addTicket = (ticketData: Omit<Ticket, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'requester'> & {requester: User}) => {
+export const addTicket = (ticketData: Omit<Ticket, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'requester' | 'interactions'> & {requester: User}) => {
     const newTicket: Ticket = {
         id: `TKT-${String(Date.now()).slice(-5)}`,
         ...ticketData,
         status: 'Aberto',
         createdAt: new Date(),
         updatedAt: new Date(),
+        interactions: [
+             { id: `int-${String(Date.now()).slice(-5)}`, author: ticketData.requester, content: 'Chamado criado.', createdAt: new Date(), isInternal: false }
+        ]
     };
     tickets.unshift(newTicket);
     return newTicket;
 }
+
+export const addInteractionToTicket = (ticketId: string, author: User | Technician, content: string, isInternal: boolean): Ticket | undefined => {
+    const ticket = getTicketById(ticketId);
+    if (ticket) {
+        const newInteraction: TicketInteraction = {
+            id: `int-${String(Date.now()).slice(-5)}`,
+            author,
+            content,
+            isInternal,
+            createdAt: new Date(),
+        };
+        ticket.interactions.push(newInteraction);
+        ticket.updatedAt = new Date();
+        if (!isInternal) {
+            ticket.status = 'Aguardando Usuário';
+        }
+        return ticket;
+    }
+    return undefined;
+};
+
 
 export const getTicketById = (id: string) => tickets.find(t => t.id === id);
 export const getUsers = () => users;

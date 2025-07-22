@@ -1,4 +1,4 @@
-export type TicketStatus = 'Aberto' | 'Em Andamento' | 'Concluído' | 'Cancelado';
+export type TicketStatus = 'Aberto' | 'Em Andamento' | 'Concluído' | 'Cancelado' | 'Aguardando Usuário';
 export type TicketPriority = 'Baixa' | 'Média' | 'Alta' | 'Crítica';
 export type TicketCategory = 'Rede' | 'Software' | 'Hardware' | 'Acesso' | 'Outros';
 
@@ -21,6 +21,14 @@ export interface Technician {
   workload: number;
 }
 
+export interface TicketInteraction {
+    id: string;
+    author: User | Technician;
+    content: string;
+    createdAt: Date;
+    isInternal: boolean;
+}
+
 export interface Ticket {
   id: string;
   title: string;
@@ -32,6 +40,7 @@ export interface Ticket {
   assignedTo?: Technician;
   createdAt: Date;
   updatedAt: Date;
+  interactions: TicketInteraction[];
 }
 
 export interface KnowledgeArticle {

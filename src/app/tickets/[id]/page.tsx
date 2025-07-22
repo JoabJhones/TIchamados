@@ -2,7 +2,7 @@
 
 'use client';
 
-import { getTicketById, getTechnicians } from "@/lib/mock-data";
+import { getTicketById, getTechnicians, addInteractionToTicket } from "@/lib/mock-data";
 import { notFound, useParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,11 +11,14 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Activity, ArrowLeft, AtSign, Building, Phone, Send, Tag, User, Wand2 } from "lucide-react";
+import { Activity, ArrowLeft, AtSign, Building, Phone, Send, Tag, User, Wand2, MessageSquare, Shield, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAuth } from "@/contexts/auth-context";
 import { TICKET_PRIORITIES, TICKET_STATUSES } from "@/lib/constants";
+import React, { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 
 const priorityVariantMap: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
@@ -30,13 +33,20 @@ const statusColorMap: { [key: string]: string } = {
     'Em Andamento': 'bg-yellow-500',
     'Concluído': 'bg-green-500',
     'Cancelado': 'bg-gray-500',
+    'Aguardando Usuário': 'bg-orange-500',
 }
 
 export default function TicketDetailsPage() {
     const params = useParams();
     const ticketId = Array.isArray(params.id) ? params.id[0] : params.id;
     const { user } = useAuth();
-    const ticket = getTicketById(ticketId);
+    const { toast } = useToast();
+    
+    // Using a state for the ticket to force re-render on update
+    const [ticket, setTicket] = useState(() => getTicketById(ticketId));
+    const [newComment, setNewComment] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
     const technicians = getTechnicians();
 
     if (!ticket) {
@@ -54,6 +64,31 @@ export default function TicketDetailsPage() {
     }
 
     const isAdmin = user?.role === 'admin';
+
+    const handleAddInteraction = (isInternal: boolean) => {
+        if (!newComment.trim() || !user) return;
+        setIsSubmitting(true);
+        
+        // Simulate API call
+        setTimeout(() => {
+            const updatedTicket = addInteractionToTicket(ticket.id, user, newComment, isInternal);
+            if (updatedTicket) {
+                setTicket({...updatedTicket}); // Update state to re-render
+                setNewComment("");
+                toast({
+                    title: "Sucesso!",
+                    description: `Sua mensagem foi ${isInternal ? 'adicionada como um comentário interno' : 'enviada para o usuário'}.`,
+                });
+            } else {
+                 toast({
+                    variant: 'destructive',
+                    title: "Erro",
+                    description: "Não foi possível adicionar o comentário.",
+                });
+            }
+            setIsSubmitting(false);
+        }, 500);
+    }
 
     return (
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -85,31 +120,49 @@ export default function TicketDetailsPage() {
                             <CardTitle>Histórico de Interações</CardTitle>
                         </CardHeader>
                         <CardContent>
-                           <div className="space-y-4">
-                               <div className="flex items-start gap-4">
-                                    <Avatar className="h-9 w-9">
-                                        <AvatarImage src={ticket.requester.avatarUrl} alt={ticket.requester.name} />
-                                        <AvatarFallback>{ticket.requester.name[0]}</AvatarFallback>
-                                    </Avatar>
-                                    <div className="space-y-1">
-                                        <p className="text-sm font-medium leading-none">{ticket.requester.name} <span className="text-xs text-muted-foreground font-normal">abriu o chamado</span></p>
-                                        <p className="text-xs text-muted-foreground">{format(ticket.createdAt, "dd/MM/yyyy HH:mm")}</p>
-                                    </div>
-                               </div>
+                           <div className="space-y-6">
+                               {ticket.interactions.map(interaction => (
+                                   <div key={interaction.id} className={cn("flex items-start gap-4", interaction.isInternal && "rounded-md border border-dashed border-yellow-500/50 bg-yellow-500/5 p-3")}>
+                                        <Avatar className="h-9 w-9 border">
+                                            <AvatarImage src={interaction.author.avatarUrl} alt={interaction.author.name} />
+                                            <AvatarFallback>{interaction.author.name[0]}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="w-full">
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-sm font-medium leading-none">{interaction.author.name}</p>
+                                                <div className="flex items-center gap-2">
+                                                    {interaction.isInternal && <Badge variant="outline" className="text-xs border-yellow-500/80 text-yellow-600"><Shield className="mr-1 h-3 w-3" /> Interno</Badge>}
+                                                    <p className="text-xs text-muted-foreground">{format(interaction.createdAt, "dd/MM/yyyy HH:mm")}</p>
+                                                </div>
+                                            </div>
+                                            <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">{interaction.content}</p>
+                                        </div>
+                                   </div>
+                               ))}
+
                                {isAdmin && (
                                    <>
                                     <Separator />
                                     <div>
-                                        <Textarea placeholder="Adicionar comentário interno ou responder ao usuário..." className="mb-2" />
+                                        <Textarea 
+                                            placeholder="Adicionar comentário interno ou responder ao usuário..." 
+                                            className="mb-2" 
+                                            value={newComment}
+                                            onChange={(e) => setNewComment(e.target.value)}
+                                            disabled={isSubmitting}
+                                        />
                                         <div className="flex justify-between items-center">
-                                             <Button variant="outline" size="sm">
+                                             <Button variant="outline" size="sm" disabled>
                                                 <Wand2 className="mr-2 h-4 w-4" />
                                                 Modelos de Resposta
                                             </Button>
-                                            <div>
-                                                <Button variant="secondary" size="sm" className="mr-2">Comentário Interno</Button>
-                                                <Button className="bg-accent hover:bg-accent/90" size="sm">
-                                                    <Send className="mr-2 h-4 w-4" />
+                                            <div className="flex items-center gap-2">
+                                                <Button variant="secondary" size="sm" onClick={() => handleAddInteraction(true)} disabled={isSubmitting || !newComment.trim()}>
+                                                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageSquare className="mr-2 h-4 w-4" />}
+                                                    Comentário Interno
+                                                </Button>
+                                                <Button className="bg-accent hover:bg-accent/90" size="sm" onClick={() => handleAddInteraction(false)} disabled={isSubmitting || !newComment.trim()}>
+                                                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                                     Enviar para Usuário
                                                 </Button>
                                             </div>
@@ -229,4 +282,3 @@ export default function TicketDetailsPage() {
         </div>
     );
 }
-
