@@ -12,25 +12,72 @@ import { Activity, AlertTriangle, CheckCircle, Clock, Loader2 } from "lucide-rea
 import { TicketCharts } from "@/components/management/ticket-charts";
 import { RecentTickets } from "@/components/dashboard/recent-tickets";
 import { useAuth } from "@/contexts/auth-context";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Ticket } from "@/lib/types";
 
-export default function ManagementPage() {
+interface ManagementPageProps {
+  playNewTicketSfx?: () => void;
+  playNewMessageSfx?: () => void;
+}
+
+export default function ManagementPage({ playNewTicketSfx, playNewMessageSfx }: ManagementPageProps) {
     const { user } = useAuth();
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const isInitialLoad = useRef(true);
 
     useEffect(() => {
         if (!user) return;
+        if (user.role !== 'admin') {
+            setIsLoading(false);
+            return;
+        }
 
-        setIsLoading(true);
         const unsubscribe = listenToTickets(user.id, user.role, (newTickets) => {
-            setTickets(newTickets);
-            if(isLoading) setIsLoading(false);
+            if (isInitialLoad.current) {
+                setTickets(newTickets);
+                isInitialLoad.current = false;
+            } else {
+                // Check for new tickets
+                if (newTickets.length > tickets.length) {
+                   const newTicketFound = newTickets.find(nt => !tickets.some(ot => ot.id === nt.id));
+                   if (newTicketFound) {
+                        playNewTicketSfx?.();
+                   }
+                }
+
+                // Check for new messages
+                newTickets.forEach(newTicket => {
+                    const oldTicket = tickets.find(t => t.id === newTicket.id);
+                    if (oldTicket && newTicket.interactions.length > oldTicket.interactions.length) {
+                        const newInteraction = newTicket.interactions[newTicket.interactions.length - 1];
+                        // Only play sound if the message is from a user
+                        if (newInteraction.author.role === 'user') {
+                            playNewMessageSfx?.();
+                        }
+                    }
+                });
+
+                setTickets(newTickets);
+            }
+            if (isLoading) setIsLoading(false);
         });
 
         return () => unsubscribe();
-    }, [user, isLoading]);
+    }, [user, tickets, isLoading, playNewTicketSfx, playNewMessageSfx]);
+
+    if (isLoading) {
+        return <div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    }
+
+    if (user?.role !== 'admin') {
+        return (
+            <div className="flex-1 space-y-4 p-8 pt-6">
+                <h2 className="font-headline text-3xl font-bold tracking-tight">Acesso Negado</h2>
+                <p className="text-muted-foreground">Você não tem permissão para acessar esta página.</p>
+            </div>
+        );
+    }
 
     const openTickets = tickets.filter(t => t.status === 'Aberto').length;
     const inProgressTickets = tickets.filter(t => t.status === 'Em Andamento').length;
@@ -55,7 +102,7 @@ export default function ManagementPage() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold">{openTickets}</div>}
+            <div className="text-2xl font-bold">{openTickets}</div>
             <p className="text-xs text-muted-foreground">Aguardando atribuição</p>
           </CardContent>
         </Card>
@@ -65,7 +112,7 @@ export default function ManagementPage() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-             {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold">{inProgressTickets}</div>}
+             <div className="text-2xl font-bold">{inProgressTickets}</div>
             <p className="text-xs text-muted-foreground">Sendo atendidos pela equipe</p>
           </CardContent>
         </Card>
@@ -75,7 +122,7 @@ export default function ManagementPage() {
             <AlertTriangle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-             {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold">{criticalTickets}</div>}
+             <div className="text-2xl font-bold">{criticalTickets}</div>
             <p className="text-xs text-muted-foreground">Chamados com prioridade crítica</p>
           </CardContent>
         </Card>
@@ -85,7 +132,7 @@ export default function ManagementPage() {
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-             {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold">{completedTickets}</div>}
+             <div className="text-2xl font-bold">{completedTickets}</div>
             <p className="text-xs text-muted-foreground">Resolvidos pela equipe</p>
           </CardContent>
         </Card>

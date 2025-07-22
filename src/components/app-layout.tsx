@@ -34,7 +34,8 @@ import {
 } from '@/components/ui/sidebar';
 import { Logo } from './logo';
 import { useAuth } from '@/contexts/auth-context';
-import React from 'react';
+import React, { useRef } from 'react';
+import { AudioController, AudioControllerRef } from './audio-controller';
 
 const navItems = [
   { href: '/', label: 'Painel', icon: Home, admin: false },
@@ -51,6 +52,9 @@ function MainNav() {
   const filteredNavItems = navItems.filter(item => {
       if (item.admin) {
           return user?.role === 'admin';
+      }
+      if(user?.role !== 'admin' && item.href === '/management') {
+          return false;
       }
       return true;
   });
@@ -139,6 +143,7 @@ function AppFooter() {
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const pathname = usePathname();
+  const audioControllerRef = useRef<AudioControllerRef>(null);
 
   const isAuthPage = pathname === '/login' || pathname === '/register';
 
@@ -159,8 +164,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If not authenticated and not on an auth page, show loading or redirect.
-  // The AuthProvider already handles redirection, so we can just show a loading state.
   if (!user) {
     return (
         <div className="flex min-h-screen items-center justify-center bg-background">
@@ -169,6 +172,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     )
   }
   
+  const childrenWithSfx = React.Children.map(children, child => {
+    if (React.isValidElement(child)) {
+      return React.cloneElement(child, { 
+          playNewTicketSfx: () => audioControllerRef.current?.playNewTicketSound(),
+          playNewMessageSfx: () => audioControllerRef.current?.playNewMessageSound(),
+        } as any);
+    }
+    return child;
+  });
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen">
@@ -188,10 +201,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </Sidebar>
         <SidebarInset className="flex flex-col bg-background">
             <div className="flex-grow">
-              {children}
+              {childrenWithSfx}
             </div>
             <AppFooter />
         </SidebarInset>
+        <AudioController ref={audioControllerRef} />
       </div>
     </SidebarProvider>
   );

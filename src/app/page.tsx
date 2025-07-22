@@ -1,6 +1,6 @@
 
 'use client';
-import { Activity, CircleCheck, Clock } from 'lucide-react';
+import { Activity, CircleCheck, Clock, Loader2 } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -10,25 +10,54 @@ import {
 import { RecentTickets } from '@/components/dashboard/recent-tickets';
 import { listenToTickets } from '@/lib/mock-data';
 import { useAuth } from '@/contexts/auth-context';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import type { Ticket } from '@/lib/types';
 
-export default function DashboardPage() {
+interface DashboardPageProps {
+  playNewMessageSfx?: () => void;
+}
+
+export default function DashboardPage({ playNewMessageSfx }: DashboardPageProps) {
   const { user } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const isInitialLoad = useRef(true);
 
   useEffect(() => {
     if (!user) return;
 
-    setIsLoading(true);
     const unsubscribe = listenToTickets(user.id, user.role, (newTickets) => {
+      if (isInitialLoad.current) {
         setTickets(newTickets);
-        if(isLoading) setIsLoading(false);
+        isInitialLoad.current = false;
+      } else {
+        // Check for new messages if the user is not an admin
+        if (user.role !== 'admin') {
+          newTickets.forEach(newTicket => {
+            const oldTicket = tickets.find(t => t.id === newTicket.id);
+            if (oldTicket && newTicket.interactions.length > oldTicket.interactions.length) {
+              const newInteraction = newTicket.interactions[newTicket.interactions.length - 1];
+              if (newInteraction.author.role === 'admin') {
+                  playNewMessageSfx?.();
+              }
+            }
+          });
+        }
+        setTickets(newTickets);
+      }
+      if (isLoading) setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user, isLoading]);
+  }, [user, tickets, isLoading, playNewMessageSfx]);
+  
+  if (isLoading) {
+    return (
+        <div className="flex flex-1 items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+    )
+  }
 
   const openTickets = tickets.filter(t => t.status === 'Aberto').length;
   const inProgressTickets = tickets.filter(t => t.status === 'Em Andamento').length;
