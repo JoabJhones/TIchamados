@@ -44,11 +44,15 @@ export const listenToTickets = (userId: string, userRole: 'admin' | 'user', call
     if (userRole === 'admin') {
         q = query(ticketsCollection, orderBy('createdAt', 'desc'));
     } else {
-        q = query(ticketsCollection, where('requester.id', '==', userId), orderBy('createdAt', 'desc'));
+        q = query(ticketsCollection, where('requester.id', '==', userId));
     }
 
     return onSnapshot(q, (querySnapshot) => {
         const tickets = querySnapshot.docs.map(processTicketDoc).filter((t): t is Ticket => t !== null);
+        // Sort locally if not admin to avoid composite index
+        if (userRole !== 'admin') {
+            tickets.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        }
         callback(tickets);
     }, (error) => {
         console.error("Error listening to tickets:", error);
