@@ -26,8 +26,43 @@ module.exports = {
   ],
   plugins: [
     {
-      name: '@electron-forge/plugin-auto-unpack-natives',
-      config: {},
+      name: '@electron-forge/plugin-webpack',
+      config: {
+        mainConfig: {
+          entry: './electron.js',
+        },
+        renderer: {
+          config: {
+            module: {
+              rules: [
+                {
+                  test: /\.tsx?$/,
+                  exclude: /node_modules/,
+                  use: {
+                    loader: 'ts-loader',
+                    options: {
+                      transpileOnly: true,
+                    },
+                  },
+                },
+              ],
+            },
+            resolve: {
+              extensions: ['.js', '.ts', '.jsx', '.tsx', '.css'],
+            },
+          },
+          entryPoints: [
+            {
+              html: './out/index.html',
+              js: './renderer.js',
+              name: 'main_window',
+              preload: {
+                js: './preload.js',
+              },
+            },
+          ],
+        },
+      },
     },
     // Fuses are used to enable/disable various Electron functionality
     // at package time, before code signing the application

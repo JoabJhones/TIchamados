@@ -2,11 +2,12 @@
   "name": "nextn",
   "version": "0.1.0",
   "private": true,
+  "main": "electron.js",
   "scripts": {
     "dev": "next dev --turbopack -p 9002",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
-    "build": "next build",
+    "build": "next build && next export",
     "start": "electron-forge start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -42,6 +43,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "dotenv": "^16.5.0",
+    "electron-is-dev": "^3.0.1",
     "electron-squirrel-startup": "^1.0.1",
     "embla-carousel-react": "^8.6.0",
     "firebase": "^11.9.1",
@@ -66,14 +68,20 @@
     "@electron-forge/maker-zip": "^7.8.1",
     "@electron-forge/plugin-auto-unpack-natives": "^7.8.1",
     "@electron-forge/plugin-fuses": "^7.8.1",
+    "@electron-forge/plugin-webpack": "^7.4.0",
     "@electron/fuses": "^1.8.0",
-    "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "electron": "37.2.3",
+    "@vercel/webpack-asset-relocator-loader": "^1.7.3",
+    "copy-webpack-plugin": "^12.0.2",
+    "css-loader": "^7.1.2",
+    "electron": "31.0.1",
     "genkit-cli": "^1.14.1",
     "postcss": "^8",
+    "style-loader": "^4.0.0",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
-  }
+    "typescript": "^5",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18"
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }
