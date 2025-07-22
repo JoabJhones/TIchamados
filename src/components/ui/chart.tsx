@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -188,7 +189,7 @@ const ChartTooltipContent = React.forwardRef<
           {payload.map((item, index) => {
             const key = `${nameKey || item.name || item.dataKey || "value"}`
             const itemConfig = getPayloadConfigFromPayload(config, item, key)
-            const indicatorColor = color || item.payload.fill || item.color
+            const indicatorColor = item.color || item.payload.fill
 
             return (
               <div
@@ -355,6 +356,8 @@ function getPayloadConfigFromPayload(
     : config[key as keyof typeof config]
 }
 
+const BarChart = RechartsPrimitive.BarChart;
+
 export {
   ChartContainer,
   ChartTooltip,
@@ -362,4 +365,5 @@ export {
   ChartLegend,
   ChartLegendContent,
   ChartStyle,
+  BarChart
 }
