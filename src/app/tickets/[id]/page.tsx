@@ -1,8 +1,9 @@
 
+
 'use client';
 
 import { getTicketById, getTechnicians } from "@/lib/mock-data";
-import { notFound } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -31,9 +32,11 @@ const statusColorMap: { [key: string]: string } = {
     'Cancelado': 'bg-gray-500',
 }
 
-export default function TicketDetailsPage({ params }: { params: { id: string } }) {
+export default function TicketDetailsPage() {
+    const params = useParams();
+    const ticketId = Array.isArray(params.id) ? params.id[0] : params.id;
     const { user } = useAuth();
-    const ticket = getTicketById(params.id);
+    const ticket = getTicketById(ticketId);
     const technicians = getTechnicians();
 
     if (!ticket) {
