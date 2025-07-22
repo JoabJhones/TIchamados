@@ -28,13 +28,20 @@ export default function LoginPage() {
         toast({ title: 'Login bem-sucedido!', description: `Bem-vindo de volta, ${user.name}.` });
         router.push('/');
       } else {
+        // This case might not be reached if login throws an error, but it's good for safety.
         throw new Error("Credenciais inválidas");
       }
     } catch (error: any) {
+       let description = 'Ocorreu um erro ao tentar fazer login. Tente novamente mais tarde.';
+       if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+           description = 'E-mail ou senha incorretos. Por favor, verifique suas credenciais.';
+       } else if (error.code === 'auth/too-many-requests') {
+            description = 'Acesso temporariamente bloqueado devido a muitas tentativas. Tente novamente mais tarde.';
+       }
        toast({
           variant: 'destructive',
           title: 'Falha no Login',
-          description: 'Ocorreu um erro ao tentar fazer login. Verifique suas credenciais ou se o usuário existe no Firebase.',
+          description: description,
         });
     } finally {
         setIsLoading(false);

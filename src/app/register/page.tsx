@@ -26,6 +26,14 @@ export default function RegisterPage() {
     e.preventDefault();
     setIsLoading(true);
     try {
+      if (password.length < 6) {
+        toast({
+          variant: 'destructive',
+          title: 'Senha muito curta',
+          description: 'A senha deve ter pelo menos 6 caracteres.',
+        });
+        return;
+      }
       const newUser = await register({ name, email, department, contact, password });
       if (newUser) {
         toast({ title: 'Cadastro realizado com sucesso!', description: `Bem-vindo, ${newUser.name}!` });
@@ -33,11 +41,17 @@ export default function RegisterPage() {
       } else {
         throw new Error();
       }
-    } catch (error) {
+    } catch (error: any) {
+        let description = 'Não foi possível realizar o cadastro. Verifique os dados ou tente novamente.';
+        if (error.code === 'auth/email-already-in-use') {
+            description = 'Este e-mail já está em uso. Tente fazer login ou use um e-mail diferente.';
+        } else if (error.code === 'auth/invalid-email') {
+            description = 'O formato do e-mail é inválido.';
+        }
        toast({
           variant: 'destructive',
           title: 'Erro no Cadastro',
-          description: 'Não foi possível realizar o cadastro. Verifique os dados ou tente novamente.',
+          description: description,
         });
     } finally {
         setIsLoading(false);
@@ -76,7 +90,7 @@ export default function RegisterPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
-              <Input id="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} />
+              <Input id="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo de 6 caracteres"/>
             </div>
             <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={isLoading}>
               {isLoading ? 'Cadastrando...' : 'Criar Conta'}
