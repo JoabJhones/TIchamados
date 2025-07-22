@@ -50,7 +50,7 @@ export default function DashboardPage({ playNewMessageSfx }: DashboardPageProps)
 
     return () => unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, playNewMessageSfx]);
+  }, [user]);
   
   if (isLoading) {
     return (

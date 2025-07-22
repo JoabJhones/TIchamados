@@ -63,7 +63,7 @@ export default function ManagementPage({ playNewTicketSfx, playNewMessageSfx }: 
 
         return () => unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user, playNewTicketSfx, playNewMessageSfx]);
+    }, [user]);
 
     if (isLoading) {
         return <div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
