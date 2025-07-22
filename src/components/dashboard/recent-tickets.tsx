@@ -1,3 +1,5 @@
+'use client';
+
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -18,6 +20,7 @@ import type { Ticket } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useRouter } from 'next/navigation';
 
 const priorityVariantMap: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
   'Crítica': 'destructive',
@@ -34,6 +37,12 @@ const statusColorMap: { [key: string]: string } = {
 }
 
 export function RecentTickets({ tickets }: { tickets: Ticket[] }) {
+  const router = useRouter();
+
+  const handleTicketClick = (ticketId: string) => {
+    router.push(`/tickets/${ticketId}`);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -54,7 +63,7 @@ export function RecentTickets({ tickets }: { tickets: Ticket[] }) {
           </TableHeader>
           <TableBody>
             {tickets.map((ticket) => (
-              <TableRow key={ticket.id}>
+              <TableRow key={ticket.id} onClick={() => handleTicketClick(ticket.id)} className="cursor-pointer">
                 <TableCell>
                   <div className="font-medium">{ticket.title}</div>
                   <div className="text-sm text-muted-foreground md:hidden">
