@@ -1,33 +1,7 @@
 
-import type { Ticket, User, Technician, KnowledgeArticle, TicketPriority, TicketCategory, TicketInteraction } from './types';
-import { collection, addDoc, getDocs, doc, getDoc, query, where, writeBatch, orderBy, limit } from 'firebase/firestore';
+import type { Ticket, User, Technician, KnowledgeArticle, TicketPriority, TicketCategory, TicketInteraction, TicketStatus } from './types';
+import { collection, addDoc, getDocs, doc, getDoc, query, where, writeBatch, orderBy, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase';
-
-const users: User[] = [
-  { id: 'user-1', name: 'Ana Silva', email: 'ana.silva@example.com', avatarUrl: 'https://placehold.co/100x100', role: 'user', department: 'Vendas', contact: '1111' },
-  { id: 'user-2', name: 'Bruno Costa', email: 'bruno.costa@example.com', avatarUrl: 'https://placehold.co/100x100', role: 'user', department: 'Financeiro', contact: '2222' },
-  { id: 'user-3', name: 'Carla Dias', email: 'carla.dias@example.com', avatarUrl: 'https://placehold.co/100x100', role: 'user', department: 'Marketing', contact: '3333' },
-  { id: 'admin-1', name: 'Admin', email: 'admin@elotech.com', avatarUrl: 'https://placehold.co/100x100', role: 'admin' },
-];
-
-
-let tickets: Ticket[] = [
-  {
-    id: 'TKT-001',
-    title: 'Computador não liga',
-    description: 'Meu computador de mesa não está ligando desde ontem. Já verifiquei a tomada e o cabo de força, mas nada acontece. A luz do monitor acende, mas a CPU parece morta.',
-    status: 'Aberto',
-    priority: 'Alta',
-    category: 'Hardware',
-    requester: users[0],
-    assignedTo: undefined,
-    createdAt: new Date('2024-07-22T09:00:00Z'),
-    updatedAt: new Date('2024-07-22T09:30:00Z'),
-    interactions: [
-      { id: 'int-1', author: users[0], content: 'Chamado criado.', createdAt: new Date('2024-07-22T09:00:00Z'), isInternal: false }
-    ]
-  },
-];
 
 const articles: KnowledgeArticle[] = [
     {
@@ -36,7 +10,7 @@ const articles: KnowledgeArticle[] = [
       category: 'Rede',
       content: 'Este guia passo a passo mostra como configurar uma conexão VPN no Windows 11...',
       createdAt: new Date('2024-06-10T10:00:00Z'),
-      author: users[0],
+      author: { id: 'user-1', name: 'Ana Silva', email: 'ana.silva@example.com', avatarUrl: 'https://placehold.co/100x100', role: 'user', department: 'Vendas', contact: '1111' },
     },
     {
       id: 'KB-002',
@@ -44,9 +18,24 @@ const articles: KnowledgeArticle[] = [
       category: 'Hardware',
       content: 'Sua impressora não está funcionando? Aqui estão os problemas mais comuns e como resolvê-los...',
       createdAt: new Date('2024-06-15T11:30:00Z'),
-      author: users[1],
+      author: { id: 'user-2', name: 'Bruno Costa', email: 'bruno.costa@example.com', avatarUrl: 'https://placehold.co/100x100', role: 'user', department: 'Financeiro', contact: '2222' },
     },
 ];
+
+const processTicketDoc = (doc: any) => {
+    const data = doc.data();
+    if (!data) return null;
+    return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt.toDate(),
+        updatedAt: data.updatedAt.toDate(),
+        interactions: (data.interactions || []).map((interaction: any) => ({
+            ...interaction,
+            createdAt: interaction.createdAt.toDate()
+        }))
+    } as Ticket;
+};
 
 export const getTickets = async (userId?: string, userRole?: string): Promise<Ticket[]> => {
     const ticketsCollection = collection(db, 'tickets');
@@ -60,21 +49,7 @@ export const getTickets = async (userId?: string, userRole?: string): Promise<Ti
     }
 
     const querySnapshot = await getDocs(q);
-    const tickets = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-            id: doc.id,
-            ...data,
-            createdAt: data.createdAt.toDate(),
-            updatedAt: data.updatedAt.toDate(),
-            interactions: data.interactions.map((interaction: any) => ({
-                ...interaction,
-                createdAt: interaction.createdAt.toDate()
-            }))
-        } as Ticket;
-    });
-
-    return tickets;
+    return querySnapshot.docs.map(processTicketDoc).filter((t): t is Ticket => t !== null);
 };
 
 export const addTicket = async (ticketData: Omit<Ticket, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'interactions'> & {requester: User}) => {
@@ -84,86 +59,63 @@ export const addTicket = async (ticketData: Omit<Ticket, 'id' | 'status' | 'crea
         createdAt: new Date(),
         updatedAt: new Date(),
         interactions: [
-             { author: ticketData.requester, content: 'Chamado criado.', createdAt: new Date(), isInternal: false }
+             { id: `int-${Date.now()}`, author: ticketData.requester, content: 'Chamado criado.', createdAt: new Date(), isInternal: false }
         ]
     };
     const docRef = await addDoc(collection(db, "tickets"), newTicketData);
     return { id: docRef.id, ...newTicketData };
 }
 
-export const addInteractionToTicket = async (ticketId: string, author: User | Technician, content: string, isInternal: boolean): Promise<Ticket | undefined> => {
+export const addInteractionToTicket = async (ticketId: string, author: User | Technician, content: string, isInternal: boolean): Promise<Ticket | null> => {
     const ticketRef = doc(db, 'tickets', ticketId);
     const ticketSnap = await getDoc(ticketRef);
 
     if (ticketSnap.exists()) {
-        const ticket = ticketSnap.data() as Ticket;
-        const newInteraction = {
+        const ticketData = ticketSnap.data();
+        const newInteraction: TicketInteraction = {
             id: `int-${Date.now()}`,
-            author,
+            author: { // Storing a minimal author object
+                id: author.id,
+                name: author.name,
+                email: author.email,
+                avatarUrl: author.avatarUrl,
+                role: 'role' in author ? author.role : undefined,
+            },
             content,
             isInternal,
             createdAt: new Date(),
         };
 
-        const currentInteractions = ticket.interactions || [];
+        const currentInteractions = ticketData.interactions || [];
         const updatedInteractions = [...currentInteractions, newInteraction];
 
-        let newStatus = ticket.status;
-        if (!isInternal && ticket.status !== 'Concluído' && ticket.status !== 'Cancelado') {
-             if(author.role === 'admin') {
+        let newStatus = ticketData.status;
+        if (!isInternal && ticketData.status !== 'Concluído' && ticketData.status !== 'Cancelado') {
+             if('role' in author && author.role === 'admin') {
                 newStatus = 'Aguardando Usuário';
              } else {
                 newStatus = 'Em Andamento';
              }
         }
-
-        const batch = writeBatch(db);
-        batch.update(ticketRef, { 
+        
+        await updateDoc(ticketRef, { 
             interactions: updatedInteractions, 
             updatedAt: new Date(),
             status: newStatus 
         });
-        await batch.commit();
-
-        const updatedTicketSnap = await getDoc(ticketRef);
-        const updatedData = updatedTicketSnap.data();
-        if (!updatedData) return undefined;
         
-        return {
-            id: updatedTicketSnap.id,
-            ...updatedData,
-            createdAt: updatedData.createdAt.toDate(),
-            updatedAt: updatedData.updatedAt.toDate(),
-            interactions: updatedData.interactions.map((interaction: any) => ({
-                ...interaction,
-                createdAt: interaction.createdAt.toDate()
-            }))
-        } as Ticket;
+        const updatedTicketSnap = await getDoc(ticketRef);
+        return processTicketDoc(updatedTicketSnap);
     }
-    return undefined;
+    return null;
 };
 
 
 export const getTicketById = async (id: string): Promise<Ticket | null> => {
     const ticketRef = doc(db, 'tickets', id);
     const ticketSnap = await getDoc(ticketRef);
-
-    if (ticketSnap.exists()) {
-        const data = ticketSnap.data();
-        return {
-            id: ticketSnap.id,
-            ...data,
-            createdAt: data.createdAt.toDate(),
-            updatedAt: data.updatedAt.toDate(),
-            interactions: data.interactions.map((interaction: any) => ({
-                ...interaction,
-                createdAt: interaction.createdAt.toDate()
-            }))
-        } as Ticket;
-    }
-    return null;
+    return ticketSnap.exists() ? processTicketDoc(ticketSnap) : null;
 }
-export const getUsers = () => users;
 
 export const getTechnicians = async (): Promise<Technician[]> => {
     const techniciansCollection = collection(db, 'technicians');
@@ -179,12 +131,37 @@ export const getTechnicians = async (): Promise<Technician[]> => {
 export const addTechnician = async (techData: Omit<Technician, 'id' | 'avatarUrl' | 'workload'>) => {
     const newTechnicianData = {
         ...techData,
-        avatarUrl: `https://placehold.co/100x100?text=${techData.name[0]}`,
+        avatarUrl: `https://placehold.co/100x100.png`,
         workload: 0,
     };
     const docRef = await addDoc(collection(db, "technicians"), newTechnicianData);
     return { id: docRef.id, ...newTechnicianData };
 }
+
+const updateTicketAndReturn = async (ticketId: string, dataToUpdate: object): Promise<Ticket | null> => {
+    const ticketRef = doc(db, 'tickets', ticketId);
+    await updateDoc(ticketRef, { ...dataToUpdate, updatedAt: new Date() });
+    const updatedSnap = await getDoc(ticketRef);
+    return processTicketDoc(updatedSnap);
+};
+
+export const updateTicketStatus = (ticketId: string, status: TicketStatus) => {
+    return updateTicketAndReturn(ticketId, { status });
+};
+
+export const updateTicketPriority = (ticketId: string, priority: TicketPriority) => {
+    return updateTicketAndReturn(ticketId, { priority });
+};
+
+export const assignTicketToTechnician = (ticketId: string, technician: Technician | null) => {
+    return updateTicketAndReturn(ticketId, { assignedTo: technician });
+};
+
+export const deleteTicket = async (ticketId: string): Promise<void> => {
+    const ticketRef = doc(db, 'tickets', ticketId);
+    await deleteDoc(ticketRef);
+};
+
 
 export const getKnowledgeArticles = () => articles;
 export const TICKET_CATEGORIES: readonly string[] = ['Rede', 'Software', 'Hardware', 'Acesso', 'Outros'];

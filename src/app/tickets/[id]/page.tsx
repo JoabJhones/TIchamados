@@ -1,8 +1,8 @@
 
 'use client';
 
-import { getTicketById, getTechnicians, addInteractionToTicket } from "@/lib/mock-data";
-import { notFound, useParams } from "next/navigation";
+import { getTicketById, getTechnicians, addInteractionToTicket, updateTicketStatus, updateTicketPriority, assignTicketToTechnician, deleteTicket } from "@/lib/mock-data";
+import { notFound, useParams, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Activity, ArrowLeft, AtSign, Building, Phone, Send, Tag, User, Wand2, MessageSquare, Shield, Loader2 } from "lucide-react";
+import { Activity, ArrowLeft, AtSign, Building, Phone, Send, Tag, User, Wand2, MessageSquare, Shield, Loader2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAuth } from "@/contexts/auth-context";
@@ -18,7 +18,18 @@ import { TICKET_PRIORITIES, TICKET_STATUSES } from "@/lib/constants";
 import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { Ticket, Technician } from "@/lib/types";
+import type { Ticket, Technician, TicketStatus, TicketPriority } from "@/lib/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 const priorityVariantMap: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
   'Crítica': 'destructive',
@@ -37,6 +48,7 @@ const statusColorMap: { [key: string]: string } = {
 
 export default function TicketDetailsPage() {
     const params = useParams();
+    const router = useRouter();
     const ticketId = Array.isArray(params.id) ? params.id[0] : params.id;
     const { user } = useAuth();
     const { toast } = useToast();
@@ -46,6 +58,7 @@ export default function TicketDetailsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [newComment, setNewComment] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const fetchTicketDetails = useCallback(async () => {
         setIsLoading(true);
@@ -72,6 +85,64 @@ export default function TicketDetailsPage() {
     useEffect(() => {
         fetchTicketDetails();
     }, [fetchTicketDetails]);
+
+    const handleUpdateTicket = async (updateFn: () => Promise<Ticket | null>, successMessage: string, errorMessage: string) => {
+        try {
+            const updatedTicket = await updateFn();
+            if (updatedTicket) {
+                setTicket(updatedTicket);
+                toast({ title: "Sucesso!", description: successMessage });
+            } else {
+                throw new Error();
+            }
+        } catch (error) {
+            toast({ variant: "destructive", title: "Erro", description: errorMessage });
+        }
+    };
+
+    const handleStatusChange = (status: TicketStatus) => {
+        handleUpdateTicket(
+            () => updateTicketStatus(ticket!.id, status),
+            `Status do chamado atualizado para "${status}".`,
+            "Não foi possível atualizar o status."
+        );
+    };
+
+    const handlePriorityChange = (priority: TicketPriority) => {
+        handleUpdateTicket(
+            () => updateTicketPriority(ticket!.id, priority),
+            `Prioridade do chamado atualizada para "${priority}".`,
+            "Não foi possível atualizar a prioridade."
+        );
+    };
+
+    const handleAssignTechnician = (techId: string) => {
+        const technician = technicians.find(t => t.id === techId);
+        if (technician) {
+            handleUpdateTicket(
+                () => assignTicketToTechnician(ticket!.id, technician),
+                `Chamado atribuído a ${technician.name}.`,
+                "Não foi possível atribuir o técnico."
+            );
+        }
+    };
+    
+    const handleDeleteTicket = async () => {
+        if (ticket?.status !== 'Concluído') {
+            toast({ variant: "destructive", title: "Ação não permitida", description: "O chamado só pode ser excluído após ser marcado como 'Concluído'." });
+            return;
+        }
+        setIsDeleting(true);
+        try {
+            await deleteTicket(ticket.id);
+            toast({ title: "Sucesso!", description: "O chamado foi excluído permanentemente." });
+            router.push('/management');
+        } catch (error) {
+            toast({ variant: "destructive", title: "Erro ao excluir", description: "Não foi possível excluir o chamado." });
+            setIsDeleting(false);
+        }
+    }
+
 
     if (isLoading) {
         return (
@@ -132,7 +203,7 @@ export default function TicketDetailsPage() {
     return (
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
             <div className="flex items-center gap-4">
-                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => window.history.back()}>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => router.back()}>
                     <ArrowLeft className="h-4 w-4" />
                     <span className="sr-only">Voltar</span>
                 </Button>
@@ -163,7 +234,7 @@ export default function TicketDetailsPage() {
                                {ticket.interactions.map(interaction => (
                                    <div key={interaction.id} className={cn("flex items-start gap-4", interaction.isInternal && "rounded-md border border-dashed border-yellow-500/50 bg-yellow-500/5 p-3")}>
                                         <Avatar className="h-9 w-9 border">
-                                            <AvatarImage src={interaction.author.avatarUrl} alt={interaction.author.name} />
+                                            {interaction.author.avatarUrl && <AvatarImage src={interaction.author.avatarUrl} alt={interaction.author.name} />}
                                             <AvatarFallback>{interaction.author.name[0]}</AvatarFallback>
                                         </Avatar>
                                         <div className="w-full">
@@ -179,32 +250,28 @@ export default function TicketDetailsPage() {
                                    </div>
                                ))}
 
-                               {isAdmin && (
+                                {(isAdmin || ticket.status !== 'Concluído') && (
                                    <>
                                     <Separator />
                                     <div>
                                         <Textarea 
-                                            placeholder="Adicionar comentário interno ou responder ao usuário..." 
+                                            placeholder={isAdmin ? "Adicionar comentário interno ou responder ao usuário..." : "Adicionar um comentário..."} 
                                             className="mb-2" 
                                             value={newComment}
                                             onChange={(e) => setNewComment(e.target.value)}
                                             disabled={isSubmitting}
                                         />
-                                        <div className="flex justify-between items-center">
-                                             <Button variant="outline" size="sm" disabled>
-                                                <Wand2 className="mr-2 h-4 w-4" />
-                                                Modelos de Resposta
-                                            </Button>
-                                            <div className="flex items-center gap-2">
+                                        <div className="flex justify-end items-center gap-2">
+                                             {isAdmin && (
                                                 <Button variant="secondary" size="sm" onClick={() => handleAddInteraction(true)} disabled={isSubmitting || !newComment.trim()}>
                                                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageSquare className="mr-2 h-4 w-4" />}
                                                     Comentário Interno
                                                 </Button>
-                                                <Button className="bg-accent hover:bg-accent/90" size="sm" onClick={() => handleAddInteraction(false)} disabled={isSubmitting || !newComment.trim()}>
-                                                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                                                    Enviar para Usuário
-                                                </Button>
-                                            </div>
+                                             )}
+                                            <Button className="bg-accent hover:bg-accent/90" size="sm" onClick={() => handleAddInteraction(false)} disabled={isSubmitting || !newComment.trim()}>
+                                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                                                {isAdmin ? 'Enviar para Usuário' : 'Enviar Comentário'}
+                                            </Button>
                                         </div>
                                     </div>
                                    </>
@@ -217,12 +284,41 @@ export default function TicketDetailsPage() {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                            <CardTitle className="text-lg">Informações</CardTitle>
+                             {isAdmin && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button
+                                            variant="destructive"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            disabled={ticket.status !== 'Concluído'}
+                                            title="Excluir chamado"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Esta ação não pode ser desfeita. Isso excluirá permanentemente o chamado e todas as suas interações.
+                                        </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleDeleteTicket} disabled={isDeleting}>
+                                            {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Excluir'}
+                                        </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
                         </CardHeader>
                         <CardContent className="space-y-4">
                              <div className="flex items-center gap-2">
-                                <div className="h-3 w-3 rounded-full" style={{backgroundColor: statusColorMap[ticket.status]}} />
+                                <div className={cn("h-3 w-3 rounded-full", statusColorMap[ticket.status])} />
                                 {isAdmin ? (
-                                    <Select defaultValue={ticket.status}>
+                                    <Select value={ticket.status} onValueChange={handleStatusChange}>
                                         <SelectTrigger className="text-sm h-8">
                                             <SelectValue />
                                         </SelectTrigger>
@@ -239,17 +335,13 @@ export default function TicketDetailsPage() {
                             <div className="flex items-center gap-2">
                                 <Tag className="h-4 w-4 text-muted-foreground" />
                                 <span className="text-sm text-muted-foreground mr-2">Categoria:</span>
-                                 {isAdmin ? (
-                                     <Badge variant="outline">{ticket.category}</Badge>
-                                 ) : (
-                                     <span className="text-sm">{ticket.category}</span>
-                                 )}
+                                 <Badge variant="outline">{ticket.category}</Badge>
                             </div>
                              <div className="flex items-center gap-2">
                                 <Activity className="h-4 w-4 text-muted-foreground" />
                                 <span className="text-sm text-muted-foreground mr-2">Prioridade:</span>
                                 {isAdmin ? (
-                                    <Select defaultValue={ticket.priority}>
+                                    <Select value={ticket.priority} onValueChange={handlePriorityChange}>
                                         <SelectTrigger className="text-sm h-8">
                                             <SelectValue />
                                         </SelectTrigger>
@@ -288,11 +380,12 @@ export default function TicketDetailsPage() {
 
                             <h4 className="font-semibold">Técnico Responsável</h4>
                             {isAdmin ? (
-                                <Select defaultValue={ticket.assignedTo?.id}>
+                                <Select value={ticket.assignedTo?.id} onValueChange={handleAssignTechnician}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Atribuir a um técnico..." />
                                     </SelectTrigger>
                                     <SelectContent>
+                                         <SelectItem value="unassigned">Não atribuído</SelectItem>
                                         {technicians.map(tech => (
                                             <SelectItem key={tech.id} value={tech.id}>{tech.name}</SelectItem>
                                         ))}
@@ -303,7 +396,7 @@ export default function TicketDetailsPage() {
                                     {ticket.assignedTo ? (
                                         <>
                                             <Avatar className="h-8 w-8">
-                                                <AvatarImage src={ticket.assignedTo.avatarUrl} alt={ticket.assignedTo.name} />
+                                                {ticket.assignedTo.avatarUrl && <AvatarImage src={ticket.assignedTo.avatarUrl} alt={ticket.assignedTo.name} />}
                                                 <AvatarFallback>{ticket.assignedTo.name[0]}</AvatarFallback>
                                             </Avatar>
                                             <span className="text-sm">{ticket.assignedTo.name}</span>
