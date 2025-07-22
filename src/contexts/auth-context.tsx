@@ -1,17 +1,12 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { User } from '@/lib/types';
-import { auth, db } from '@/lib/firebase';
-import { 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut,
-  User as FirebaseUser
-} from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import type { User } from '@/lib/types';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, type User as FirebaseUser } from 'firebase/auth';
+import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import { app } from '@/lib/firebase'; // Import the initialized app
 
 interface AuthContextType {
   user: User | null;
@@ -23,19 +18,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Functions to interact with Firebase services
 const fetchUserData = async (firebaseUser: FirebaseUser): Promise<User | null> => {
+    const db = getFirestore(app);
     const userDocRef = doc(db, 'users', firebaseUser.uid);
     const userDoc = await getDoc(userDocRef);
     if (userDoc.exists()) {
         return { id: firebaseUser.uid, ...userDoc.data() } as User;
     }
-    // Handle special admin case if not in firestore
     if (firebaseUser.email?.startsWith('admin')) {
-        const adminUser = {
+        const adminUser: User = {
             id: firebaseUser.uid,
             email: firebaseUser.email!,
             name: 'Admin',
-            role: 'admin' as 'admin',
+            role: 'admin',
             avatarUrl: `https://placehold.co/100x100.png`
         };
         await setDoc(doc(db, "users", firebaseUser.uid), {
@@ -49,7 +45,6 @@ const fetchUserData = async (firebaseUser: FirebaseUser): Promise<User | null> =
     return null;
 }
 
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,6 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
 
   useEffect(() => {
+    const auth = getAuth(app);
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         if (firebaseUser) {
             const userData = await fetchUserData(firebaseUser);
@@ -82,8 +78,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user, loading, pathname, router]);
 
-
   const login = async (credentials: { email: string; pass: string }): Promise<User | null> => {
+    const auth = getAuth(app);
     const userCredential = await signInWithEmailAndPassword(auth, credentials.email, credentials.pass);
     if (userCredential.user) {
         const userData = await fetchUserData(userCredential.user);
@@ -95,33 +91,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const register = async (userInfo: Omit<User, 'id' | 'role' | 'avatarUrl'> & {password: string}): Promise<User | null> => {
     const { email, password, ...rest } = userInfo;
+    const auth = getAuth(app);
+    const db = getFirestore(app);
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
 
     if (firebaseUser) {
-        const newUser: User = {
-            id: firebaseUser.uid,
+        const newUser: Omit<User, 'id'> = {
             email: email,
             role: 'user',
             avatarUrl: 'https://placehold.co/100x100.png',
             ...rest
         };
-        await setDoc(doc(db, "users", firebaseUser.uid), {
-            name: newUser.name,
-            email: newUser.email,
-            department: newUser.department,
-            contact: newUser.contact,
-            role: 'user',
-            avatarUrl: newUser.avatarUrl,
-        });
-        setUser(newUser);
-        return newUser;
+        await setDoc(doc(db, "users", firebaseUser.uid), newUser);
+        setUser({ id: firebaseUser.uid, ...newUser });
+        return { id: firebaseUser.uid, ...newUser };
     }
     
     return null;
   };
 
   const logout = async () => {
+    const auth = getAuth(app);
     await signOut(auth);
     setUser(null);
     router.push('/login');
