@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -84,6 +85,7 @@ export default function LoginPage() {
               />
             </div>
             <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isLoading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>
