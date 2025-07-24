@@ -40,7 +40,7 @@ import { AudioController, AudioControllerRef } from './audio-controller';
 const navItems = [
   { href: '/', label: 'Painel', icon: Home, admin: false },
   { href: '/tickets/new', label: 'Novo Chamado', icon: PlusCircle, admin: false },
-  { href: '/knowledge-base', label: 'Base de Conhecimento', icon: BookText, admin: false },
+  { href: '/knowledge-base', label: 'Base de Conhecimento', icon: BookText, admin: true },
   { href: '/management', label: 'Gerenciamento', icon: Users, admin: true },
   { href: '/settings', label: 'Configurações', icon: Settings, admin: true },
 ];
@@ -50,31 +50,46 @@ function MainNav() {
   const { user } = useAuth();
 
   const filteredNavItems = navItems.filter(item => {
-      if (item.admin) {
-          return user?.role === 'admin';
+      // Show admin items only to admins
+      if (item.admin && user?.role !== 'admin') {
+          return false;
       }
+      // Hide management from non-admins
       if(user?.role !== 'admin' && item.href === '/management') {
           return false;
       }
-      return true;
+       // Show knowledge base to all, but the link logic might differ
+      if (item.href === '/knowledge-base') {
+          return true;
+      }
+      // Show non-admin items to everyone
+      if (!item.admin) {
+        return true;
+      }
+      return user?.role === 'admin';
   });
 
 
   return (
     <SidebarMenu>
-      {filteredNavItems.map((item) => (
-        <Link href={item.href} key={item.href}>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              isActive={pathname === item.href}
-              tooltip={item.label}
-            >
-              <item.icon />
-              <span>{item.label}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </Link>
-      ))}
+      {filteredNavItems.map((item) => {
+        const isKnowledgeBase = item.href === '/knowledge-base';
+        const href = isKnowledgeBase && user?.role === 'admin' ? '/knowledge-base#new' : item.href;
+        
+        return (
+            <Link href={href} key={item.href}>
+            <SidebarMenuItem>
+                <SidebarMenuButton
+                isActive={pathname === item.href}
+                tooltip={item.label}
+                >
+                <item.icon />
+                <span>{item.label}</span>
+                </SidebarMenuButton>
+            </SidebarMenuItem>
+            </Link>
+        )
+      })}
     </SidebarMenu>
   );
 }

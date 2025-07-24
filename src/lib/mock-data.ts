@@ -1,26 +1,7 @@
 
 import type { Ticket, User, Technician, KnowledgeArticle, TicketPriority, TicketCategory, TicketInteraction, TicketStatus } from './types';
-import { collection, addDoc, getDocs, doc, getDoc, query, where, writeBatch, orderBy, updateDoc, deleteDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, getDoc, query, where, writeBatch, orderBy, updateDoc, deleteDoc, onSnapshot, Unsubscribe, Timestamp } from 'firebase/firestore';
 import { db } from './firebase';
-
-const articles: KnowledgeArticle[] = [
-    {
-      id: 'KB-001',
-      title: 'Como configurar uma VPN no Windows',
-      category: 'Rede',
-      content: 'Este guia passo a passo mostra como configurar uma conexão VPN no Windows 11...',
-      createdAt: new Date('2024-06-10T10:00:00Z'),
-      author: { id: 'user-1', name: 'Ana Silva', email: 'ana.silva@example.com', avatarUrl: 'https://placehold.co/100x100', role: 'user', department: 'Vendas', contact: '1111' },
-    },
-    {
-      id: 'KB-002',
-      title: 'Solucionando problemas comuns de impressora',
-      category: 'Hardware',
-      content: 'Sua impressora não está funcionando? Aqui estão os problemas mais comuns e como resolvê-los...',
-      createdAt: new Date('2024-06-15T11:30:00Z'),
-      author: { id: 'user-2', name: 'Bruno Costa', email: 'bruno.costa@example.com', avatarUrl: 'https://placehold.co/100x100', role: 'user', department: 'Financeiro', contact: '2222' },
-    },
-];
 
 const processTicketDoc = (doc: any) => {
     const data = doc.data();
@@ -36,6 +17,38 @@ const processTicketDoc = (doc: any) => {
         }))
     } as Ticket;
 };
+
+const processArticleDoc = (doc: any) => {
+    const data = doc.data();
+    if (!data) return null;
+    return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt.toDate(),
+    } as KnowledgeArticle;
+};
+
+export const listenToKnowledgeArticles = (callback: (articles: KnowledgeArticle[]) => void): Unsubscribe => {
+    const articlesCollection = collection(db, 'knowledgeArticles');
+    const q = query(articlesCollection, orderBy('createdAt', 'desc'));
+
+    return onSnapshot(q, (querySnapshot) => {
+        const articles = querySnapshot.docs.map(processArticleDoc).filter((a): a is KnowledgeArticle => a !== null);
+        callback(articles);
+    }, (error) => {
+        console.error("Error listening to knowledge articles:", error);
+    });
+};
+
+export const addKnowledgeArticle = async (articleData: Omit<KnowledgeArticle, 'id' | 'createdAt'>) => {
+    const newArticleData = {
+        ...articleData,
+        createdAt: new Date(),
+    };
+    const docRef = await addDoc(collection(db, 'knowledgeArticles'), newArticleData);
+    return { id: docRef.id, ...newArticleData, createdAt: newArticleData.createdAt };
+}
+
 
 export const listenToTickets = (userId: string, userRole: 'admin' | 'user', callback: (tickets: Ticket[]) => void): Unsubscribe => {
     const ticketsCollection = collection(db, 'tickets');
@@ -213,8 +226,11 @@ export const deleteTicket = async (ticketId: string): Promise<void> => {
 };
 
 
-export const getKnowledgeArticles = () => articles;
+export const getKnowledgeArticles = async (): Promise<KnowledgeArticle[]> => {
+    const articlesCollection = collection(db, 'knowledgeArticles');
+     const q = query(articlesCollection, orderBy('createdAt', 'desc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(processArticleDoc).filter((a): a is KnowledgeArticle => a !== null);
+};
 export const TICKET_CATEGORIES: readonly string[] = ['Rede', 'Software', 'Hardware', 'Acesso', 'Outros'];
 export const TICKET_PRIORITIES: readonly string[] = ['Baixa', 'Média', 'Alta', 'Crítica'];
-
-    
