@@ -2,16 +2,13 @@
   "name": "nextn",
   "version": "0.1.0",
   "private": true,
-  "main": "electron.js",
   "scripts": {
     "dev": "next dev -p 9002",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit",
-    "package": "electron-forge package",
-    "make": "electron-forge make"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@genkit-ai/firebase": "^1.14.1",
@@ -60,16 +57,9 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@electron-forge/cli": "^7.4.0",
-    "@electron-forge/maker-squirrel": "^7.4.0",
-    "@electron-forge/plugin-fuses": "^7.4.0",
-    "@electron/fuses": "^1.8.0",
     "@types/node": "^20.14.13",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
-    "electron": "31.2.1",
-    "electron-is-dev": "^3.0.1",
-    "electron-squirrel-startup": "^1.0.1",
     "genkit-cli": "^1.14.1",
     "postcss": "^8.4.40",
     "tailwindcss": "^3.4.7",
